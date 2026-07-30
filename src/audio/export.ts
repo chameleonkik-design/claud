@@ -188,6 +188,54 @@ export function saveNeedsUserTap(): boolean {
   });
 }
 
+/**
+ * 埋め込み表示で使える保存機能。無ければ null。
+ *
+ * 埋め込みの中では通常のダウンロードが塞がれるので、これがあるときは
+ * 必ずこちらを使う。
+ */
+export function artifactDownloads(): ClaudeDownloads | null {
+  if (typeof window === "undefined") return null;
+  return window.claude?.downloads ?? null;
+}
+
+/**
+ * Artifact ランタイム経由で保存する。
+ * 確認ダイアログが出るので、必ずユーザー操作の中から呼ぶこと。
+ */
+export async function saveViaArtifact(blob: Blob, filename: string): Promise<SaveOutcome> {
+  const downloads = artifactDownloads();
+  if (!downloads) return "blocked";
+  try {
+    await downloads.save({ filename, data: blob });
+    return "downloaded";
+  } catch (err) {
+    const code = (err as ClaudeDownloadsError | null)?.code;
+    // 閲覧者が断った / 確認が期限切れになった場合は失敗扱いにしない
+    if (code === "declined") return "cancelled";
+    throw new Error(describeArtifactError(code, (err as ClaudeDownloadsError | null)?.message));
+  }
+}
+
+function describeArtifactError(code: string | undefined, message?: string): string {
+  switch (code) {
+    case "too_large":
+      return "ファイルが大きすぎます（16MBまで）。くり返し回数を減らしてお試しください。";
+    case "rejected_extension":
+    case "extension_not_enabled":
+      return "この形式のファイルは保存が許可されていません。";
+    case "rate_limited":
+      return "保存の確認が既に開いています。少し待ってからもう一度お試しください。";
+    case "unavailable":
+    case "not_granted":
+    case "capability_disabled":
+    case "capability_removed":
+      return "この表示ではファイル保存が使えません。";
+    default:
+      return message ?? "原因不明のエラーです。";
+  }
+}
+
 export type SaveOutcome =
   | "shared"
   | "downloaded"
