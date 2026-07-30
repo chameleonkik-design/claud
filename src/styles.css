@@ -1004,6 +1004,41 @@ button:focus-visible {
   cursor: not-allowed;
 }
 
+/* --- 支援リンク --- */
+
+.support {
+  background: linear-gradient(
+    135deg,
+    rgba(108, 140, 255, 0.12),
+    rgba(56, 209, 182, 0.1)
+  );
+  border-color: var(--border-strong);
+}
+
+.support-body {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+.support-message {
+  flex: 1;
+  min-width: 200px;
+  margin: 0;
+  font-size: 13.5px;
+  line-height: 1.6;
+  color: var(--text-dim);
+}
+
+.support-link {
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  white-space: nowrap;
+}
+
 .footer {
   color: var(--text-faint);
   font-size: 12px;

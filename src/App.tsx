@@ -49,6 +49,7 @@ import {
   type SavedSong,
 } from "./state";
 import { SavedSongs, summarize } from "./components/SavedSongs";
+import { Support } from "./components/Support";
 import { useDragReorder } from "./useDragReorder";
 import { useLongPressDrag } from "./useLongPressDrag";
 
@@ -1040,6 +1041,8 @@ export default function App() {
           プリセットはキーに依存しません。読み込んだあとにキーを変えれば、そのまま移調されます。
         </p>
       </section>
+
+      <Support />
 
       <footer className="footer">
         音源はブラウザの Web Audio API で合成しています。MP3 のエンコードも端末内で行われ、
