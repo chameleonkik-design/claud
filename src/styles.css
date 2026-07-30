@@ -1,0 +1,775 @@
+:root {
+  --bg: #0e1018;
+  --bg-raised: #171a26;
+  --bg-input: #1f2333;
+  --border: #2b3145;
+  --border-strong: #3c4363;
+  --text: #e8eaf2;
+  --text-dim: #9aa2bd;
+  --text-faint: #6b7392;
+  --accent: #6c8cff;
+  --accent-2: #38d1b6;
+  --accent-warm: #ffb454;
+  --danger: #ff6b7d;
+  --radius: 10px;
+  --radius-sm: 7px;
+  color-scheme: dark;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background: radial-gradient(1200px 700px at 20% -10%, #1b2138 0%, var(--bg) 55%) no-repeat,
+    var(--bg);
+  min-height: 100vh;
+  color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Noto Sans JP", "Segoe UI",
+    Roboto, sans-serif;
+  font-size: 15px;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+
+button {
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+
+select,
+input {
+  font: inherit;
+  color: inherit;
+}
+
+.app {
+  max-width: 1080px;
+  margin: 0 auto;
+  /* 下端は追従バーの高さぶん空けて、フッターが隠れないようにする */
+  padding: 24px 20px calc(96px + env(safe-area-inset-bottom));
+}
+
+/* --- ヘッダー --- */
+
+.header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-bottom: 22px;
+}
+
+.header h1 {
+  font-size: 22px;
+  margin: 0;
+  letter-spacing: 0.01em;
+}
+
+.header .sub {
+  margin: 2px 0 0;
+  color: var(--text-dim);
+  font-size: 13px;
+}
+
+/* --- パネル共通 --- */
+
+.panel {
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px;
+  margin-bottom: 16px;
+}
+
+.panel > h2 {
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-faint);
+  margin: 0 0 12px;
+  font-weight: 600;
+}
+
+.row {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  align-items: flex-end;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  min-width: 0;
+}
+
+.field > label {
+  font-size: 11.5px;
+  color: var(--text-dim);
+  letter-spacing: 0.03em;
+}
+
+.field select,
+.field input[type="number"],
+.field input[type="text"] {
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 7px 9px;
+  min-width: 96px;
+}
+
+.field select:focus-visible,
+.field input:focus-visible,
+button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.field input[type="range"] {
+  width: 130px;
+  accent-color: var(--accent);
+}
+
+.checkline {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 13.5px;
+  color: var(--text-dim);
+  cursor: pointer;
+  user-select: none;
+}
+
+.checkline input {
+  accent-color: var(--accent);
+  width: 16px;
+  height: 16px;
+}
+
+/* --- ボタン --- */
+
+.btn {
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 8px 14px;
+  transition: background 0.12s, border-color 0.12s, transform 0.06s;
+}
+
+.btn:hover:not(:disabled) {
+  background: #272d42;
+  border-color: #3d4568;
+}
+
+.btn:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+.btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.btn.primary {
+  background: linear-gradient(180deg, #7b98ff, #5a78f0);
+  border-color: #7b98ff;
+  color: #0c1020;
+  font-weight: 700;
+}
+
+.btn.primary:hover:not(:disabled) {
+  background: linear-gradient(180deg, #8ba5ff, #6a86f5);
+}
+
+.btn.accent {
+  background: linear-gradient(180deg, #4fdcc2, #2bb69c);
+  border-color: #4fdcc2;
+  color: #04201b;
+  font-weight: 700;
+}
+
+.btn.accent:hover:not(:disabled) {
+  background: linear-gradient(180deg, #63e6ce, #36c6ab);
+}
+
+.btn.ghost {
+  background: transparent;
+}
+
+.btn.small {
+  padding: 5px 9px;
+  font-size: 13px;
+}
+
+.btn.icon {
+  padding: 4px 8px;
+  font-size: 13px;
+  line-height: 1.2;
+}
+
+/* --- 再生バー --- */
+
+.transport {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.transport .spacer {
+  flex: 1;
+  min-width: 8px;
+}
+
+.status {
+  font-size: 12.5px;
+  color: var(--text-dim);
+  font-variant-numeric: tabular-nums;
+}
+
+.progress {
+  height: 5px;
+  background: var(--bg-input);
+  border-radius: 99px;
+  overflow: hidden;
+  margin-top: 10px;
+}
+
+.progress > div {
+  height: 100%;
+  background: linear-gradient(90deg, var(--accent), var(--accent-2));
+  transition: width 0.15s linear;
+}
+
+/* --- 進行エディタ --- */
+
+.timeline {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  align-items: stretch;
+}
+
+.chord-card {
+  position: relative;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 10px 11px 11px;
+  min-width: 128px;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  transition: border-color 0.12s, box-shadow 0.15s, transform 0.12s;
+}
+
+.chord-card.active {
+  border-color: var(--accent-2);
+  box-shadow: 0 0 0 1px var(--accent-2), 0 6px 22px -8px rgba(56, 209, 182, 0.55);
+  transform: translateY(-2px);
+}
+
+.chord-card .top {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 6px;
+}
+
+.chord-card .name {
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+
+.chord-card .roman {
+  font-size: 11.5px;
+  color: var(--accent-warm);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.chord-card .notes {
+  font-size: 11px;
+  color: var(--text-faint);
+  font-variant-numeric: tabular-nums;
+  min-height: 1em;
+}
+
+.chord-card .controls {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.chord-card select,
+.chord-card input {
+  background: #262b3d;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 3px 5px;
+  font-size: 12px;
+}
+
+.chord-card .beats {
+  width: 54px;
+}
+
+.chord-card .quality {
+  max-width: 100%;
+  flex: 1;
+  min-width: 0;
+}
+
+.add-card {
+  min-width: 128px;
+  border: 1px dashed var(--border);
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--text-dim);
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: border-color 0.12s, color 0.12s;
+}
+
+.add-card:hover {
+  border-color: var(--accent);
+  color: var(--text);
+}
+
+/* --- コードパレット --- */
+
+.palette {
+  display: flex;
+  gap: 7px;
+  flex-wrap: wrap;
+}
+
+.palette-group {
+  margin-bottom: 14px;
+}
+
+.palette-group:last-child {
+  margin-bottom: 0;
+}
+
+.palette-group > h3 {
+  font-size: 11.5px;
+  color: var(--text-faint);
+  margin: 0 0 7px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+
+.chip {
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: 99px;
+  padding: 5px 12px;
+  font-size: 13.5px;
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  transition: background 0.12s, border-color 0.12s, transform 0.06s;
+}
+
+.chip:hover {
+  background: #272d42;
+  border-color: var(--accent);
+}
+
+.chip:active {
+  transform: translateY(1px);
+}
+
+.chip .deg {
+  font-size: 10.5px;
+  color: var(--accent-warm);
+  font-weight: 600;
+}
+
+.chip.borrowed .deg {
+  color: var(--accent-2);
+}
+
+/* --- プリセット --- */
+
+.presets {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 9px;
+}
+
+.preset {
+  text-align: left;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 9px 11px;
+  transition: background 0.12s, border-color 0.12s;
+}
+
+.preset:hover {
+  background: #272d42;
+  border-color: var(--accent);
+}
+
+.preset .pname {
+  font-size: 13.5px;
+  font-weight: 600;
+}
+
+.preset .phint {
+  font-size: 11.5px;
+  color: var(--text-faint);
+  line-height: 1.45;
+}
+
+/* --- 鍵盤ビュー --- */
+
+.keyboard {
+  position: relative;
+  height: 74px;
+  display: flex;
+  user-select: none;
+  /* 黒鍵は絶対配置なので、端の鍵盤がはみ出さないように切り取る */
+  overflow: hidden;
+  border-radius: 0 0 6px 6px;
+}
+
+.key-white {
+  position: relative;
+  flex: 1;
+  background: #e7e9f2;
+  border: 1px solid #b7bcd0;
+  border-radius: 0 0 5px 5px;
+  min-width: 0;
+}
+
+.key-white.on {
+  background: linear-gradient(180deg, #a9c0ff, #6c8cff);
+  border-color: #5a78f0;
+}
+
+.key-white.root {
+  background: linear-gradient(180deg, #ffd79a, #ffb454);
+  border-color: #e59a3a;
+}
+
+.key-black {
+  position: absolute;
+  top: 0;
+  /* 実際の幅は白鍵1枚を基準に Keyboard.tsx が算出して指定する */
+  height: 62%;
+  background: #22263a;
+  border: 1px solid #05070f;
+  border-radius: 0 0 4px 4px;
+  z-index: 2;
+  transform: translateX(-50%);
+}
+
+.key-black.on {
+  background: linear-gradient(180deg, #6c8cff, #3f5cd0);
+  border-color: #2b3c8c;
+}
+
+.key-black.root {
+  background: linear-gradient(180deg, #ffb454, #d98c2a);
+  border-color: #a3661a;
+}
+
+/* --- 補足テキスト --- */
+
+.hint {
+  font-size: 12.5px;
+  color: var(--text-faint);
+  margin: 10px 0 0;
+}
+
+.hint code {
+  background: var(--bg-input);
+  padding: 1px 5px;
+  border-radius: 4px;
+  font-size: 12px;
+}
+
+.error {
+  color: var(--danger);
+  font-size: 13px;
+  margin-top: 8px;
+}
+
+/* --- 書き出し完了後の保存 --- */
+
+.save-ready {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  flex-wrap: wrap;
+  margin-top: 12px;
+  padding: 11px 12px;
+  background: rgba(56, 209, 182, 0.09);
+  border: 1px solid rgba(56, 209, 182, 0.4);
+  border-radius: var(--radius-sm);
+}
+
+.save-file {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  margin-right: auto;
+}
+
+.save-name {
+  font-size: 13.5px;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.save-size {
+  font-size: 11.5px;
+  color: var(--text-faint);
+  font-variant-numeric: tabular-nums;
+}
+
+.save-ready a.btn {
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+}
+
+.save-blocked {
+  flex-basis: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  margin-top: 4px;
+  padding: 11px 12px;
+  background: rgba(255, 107, 125, 0.1);
+  border: 1px solid rgba(255, 107, 125, 0.45);
+  border-radius: var(--radius-sm);
+}
+
+.notice {
+  border-radius: var(--radius-sm);
+  background: rgba(255, 180, 84, 0.1);
+  border: 1px solid rgba(255, 180, 84, 0.4);
+  margin: 12px 0 0;
+  padding: 10px 12px;
+  font-size: 12.5px;
+  line-height: 1.65;
+}
+
+.save-blocked p {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+/* --- 数値入力 --- */
+
+.number-field {
+  display: inline-flex;
+  align-items: stretch;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+
+.number-field input {
+  border: none;
+  background: transparent;
+  text-align: center;
+  padding: 7px 2px;
+  min-width: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+.number-field input:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+.number-field .step {
+  border: none;
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text-dim);
+  /* 指で押せる幅を確保する */
+  min-width: 34px;
+  font-size: 15px;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.12s, color 0.12s;
+}
+
+.number-field .step:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.12);
+  color: var(--text);
+}
+
+.number-field .step:active:not(:disabled) {
+  background: var(--accent);
+  color: #0c1020;
+}
+
+.number-field .step:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+/* コードカードの中では一回り小さく */
+.chord-card .number-field {
+  border-radius: 6px;
+}
+
+.chord-card .number-field input {
+  padding: 3px 2px;
+  font-size: 12px;
+  border: none;
+}
+
+.chord-card .number-field .step {
+  min-width: 26px;
+  font-size: 13px;
+}
+
+/* --- 追従する操作バー --- */
+
+.floating-transport {
+  position: fixed;
+  left: 50%;
+  bottom: 0;
+  z-index: 50;
+  width: min(560px, calc(100% - 20px));
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 9px 12px;
+  margin-bottom: max(12px, env(safe-area-inset-bottom));
+  /* backdrop-filter が効かない環境でも下の文字が透けないよう、ほぼ不透明にする */
+  background: rgba(20, 23, 34, 0.98);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid var(--border-strong);
+  border-radius: 999px;
+  box-shadow: 0 12px 34px -10px rgba(0, 0, 0, 0.75);
+  /* 隠れているときは下に逃がす */
+  transform: translate(-50%, calc(100% + 24px));
+  opacity: 0;
+  visibility: hidden;
+  transition: transform 0.22s ease, opacity 0.18s ease, visibility 0.22s;
+}
+
+.floating-transport.visible {
+  transform: translate(-50%, 0);
+  opacity: 1;
+  visibility: visible;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .floating-transport {
+    transition: opacity 0.15s ease, visibility 0.15s;
+    transform: translate(-50%, 0);
+  }
+}
+
+.fab {
+  flex: none;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: none;
+  background: linear-gradient(180deg, #7b98ff, #5a78f0);
+  color: #0c1020;
+  font-size: 15px;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.08s, filter 0.12s;
+}
+
+.fab:hover:not(:disabled) {
+  filter: brightness(1.08);
+}
+
+.fab:active:not(:disabled) {
+  transform: scale(0.94);
+}
+
+.fab:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.fab.playing {
+  background: linear-gradient(180deg, #4fdcc2, #2bb69c);
+  color: #04201b;
+}
+
+.fab-now {
+  flex: 1;
+  min-width: 0;
+}
+
+.fab-chord {
+  font-size: 15px;
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.fab-sub {
+  font-size: 11px;
+  color: var(--text-faint);
+  font-variant-numeric: tabular-nums;
+}
+
+.footer {
+  color: var(--text-faint);
+  font-size: 12px;
+  text-align: center;
+  margin-top: 26px;
+}
+
+.footer a {
+  color: var(--text-dim);
+}
+
+/* --- 狭い画面 --- */
+
+@media (max-width: 640px) {
+  .app {
+    padding: 16px 12px calc(92px + env(safe-area-inset-bottom));
+  }
+
+  .chord-card,
+  .add-card {
+    min-width: calc(50% - 5px);
+    flex: 1;
+  }
+
+  .field select,
+  .field input[type="number"] {
+    min-width: 84px;
+  }
+}
