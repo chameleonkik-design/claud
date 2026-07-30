@@ -107,7 +107,7 @@ export function Palette({ song, useFlats, onAdd, onPreview }: Props) {
       </div>
 
       <p className="hint">
-        クリックで進行の末尾に追加、右クリック（長押し）でそのコードだけ試聴します。
+        タップで進行の末尾に追加、長押し（PCでは右クリック）でそのコードだけ試聴します。
       </p>
     </div>
   );

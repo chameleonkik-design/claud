@@ -19,6 +19,8 @@ interface Props {
   onToggle: () => void;
   onExport: () => void;
   exportBusy: boolean;
+  onUndo: () => void;
+  canUndo: boolean;
 }
 
 export function FloatingTransport({
@@ -30,6 +32,8 @@ export function FloatingTransport({
   onToggle,
   onExport,
   exportBusy,
+  onUndo,
+  canUndo,
 }: Props) {
   const [visible, setVisible] = useState(false);
   const barRef = useRef<HTMLDivElement>(null);
@@ -74,6 +78,16 @@ export function FloatingTransport({
           {position ? `${position.index} / ${position.total}` : "タップして再生"}
         </div>
       </div>
+
+      <button
+        className="fab-undo"
+        onClick={onUndo}
+        disabled={!canUndo}
+        aria-label="元に戻す"
+        title="元に戻す"
+      >
+        ↶
+      </button>
 
       <button className="btn accent small" onClick={onExport} disabled={exportBusy || disabled}>
         {exportBusy ? "書き出し中…" : "MP3"}
