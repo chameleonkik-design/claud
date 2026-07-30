@@ -28,7 +28,7 @@ export interface SupportConfig {
  *   url: "https://ko-fi.com/yourname",
  */
 export const SUPPORT: SupportConfig = {
-  url: "",
+  url: "https://ko-fi.com/chameleonkik",
   label: "☕ 開発を応援する",
   message: "このアプリは無料で、広告もありません。気に入ったら開発の支援をお願いします。",
 };

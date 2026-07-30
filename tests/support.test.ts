@@ -12,9 +12,17 @@ describe("支援リンクの設定", () => {
     expect(resolveSupport(config({ url: "   " }))).toBeNull();
   });
 
-  it("初期状態では未設定なので何も出ない", () => {
-    // URL を入れるまでは支援カードを描画しない
-    expect(resolveSupport(SUPPORT)).toBeNull();
+  it("出荷時の設定が壊れていない", () => {
+    // 未設定なら非表示、設定済みなら https のリンクとして解決できること。
+    // どちらでもない（設定したのに無効）状態で公開されないよう見張る。
+    const resolved = resolveSupport(SUPPORT);
+    if (SUPPORT.url.trim() === "") {
+      expect(resolved).toBeNull();
+    } else {
+      expect(resolved).not.toBeNull();
+      expect(resolved!.url.startsWith("https://")).toBe(true);
+      expect(resolved!.label).not.toBe("");
+    }
   });
 
   it("https の URL を受け付ける", () => {
