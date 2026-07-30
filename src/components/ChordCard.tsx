@@ -5,6 +5,7 @@
 import { QUALITIES } from "../music/chords";
 import { midiName, pcName, prettyAccidentals } from "../music/notes";
 import { useFlatsForDegree } from "../music/scales";
+import { NumberField } from "./NumberField";
 import type { ResolvedChord } from "../music/song";
 
 interface Props {
@@ -86,16 +87,17 @@ export function ChordCard({
       </div>
 
       <div className="controls">
-        <input
+        <NumberField
           className="beats"
-          type="number"
-          aria-label={`${index + 1}番目のコードの拍数`}
+          ariaLabel={`${index + 1}番目のコードの拍数`}
           min={0.5}
           max={32}
           step={0.5}
           value={slot.beats}
-          onChange={(e) => onChange({ beats: Number(e.target.value) })}
+          onChange={(beats) => onChange({ beats })}
           title="長さ（拍）"
+          steppers
+          width={40}
         />
         <select
           aria-label={`${index + 1}番目のコードの転回`}

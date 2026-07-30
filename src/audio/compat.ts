@@ -42,12 +42,16 @@ export function pickSaveStrategy(env: { ios: boolean; canShareFiles: boolean }):
 /**
  * 保存に「もう一度タップ」が必要な環境か。
  *
- * Web Share API はユーザー操作の直後（transient activation 有効中）しか呼べない。
- * レンダリングとエンコードに数秒かかるとその権利が切れてしまうので、
- * 共有経路を使う環境では書き出し完了後に改めてタップしてもらう必要がある。
+ * iOS では保存経路が「共有シート」か「別タブで開く」しかなく、どちらも
+ * ユーザー操作の直後（transient activation 有効中）でないと実行できない。
+ * レンダリングとエンコードの数秒でその権利は切れてしまうので、書き出しが
+ * 終わったあとに改めてタップしてもらう必要がある。
+ *
+ * 共有 API の有無では判断しない。共有が使えない iOS でも、黙って無視される
+ * ダウンロードを自動実行してしまうと「押しても何も起きない」ことになるため。
  */
-export function needsManualSaveTap(strategy: SaveStrategy): boolean {
-  return strategy === "share";
+export function needsManualSaveTap(env: { ios: boolean }): boolean {
+  return env.ios;
 }
 
 interface WebkitWindow {
@@ -84,4 +88,19 @@ export function createOfflineAudioContext(
 /** ユーザーが共有シートを閉じただけ（失敗ではない）かどうか。 */
 export function isAbortError(err: unknown): boolean {
   return err instanceof Error && (err.name === "AbortError" || /abort|cancel/i.test(err.message));
+}
+
+/**
+ * 他ページに埋め込まれて動いているか。
+ *
+ * iframe の中では Permissions Policy により共有シート（web-share）が使えず、
+ * iOS では保存経路が塞がれてしまう。その場合は「別タブで開く」よう促す。
+ */
+export function isEmbedded(): boolean {
+  try {
+    return window.top !== window.self;
+  } catch {
+    // クロスオリジンで window.top を触れない = 埋め込まれている
+    return true;
+  }
 }

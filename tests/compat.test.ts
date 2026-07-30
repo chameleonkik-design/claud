@@ -70,10 +70,11 @@ describe("保存方法の選択", () => {
     expect(pickSaveStrategy({ ios: false, canShareFiles: false })).toBe("download");
   });
 
-  it("共有経路のときだけ、書き出し後の再タップが必要になる", () => {
-    // Web Share API はユーザー操作の直後しか呼べない
-    expect(needsManualSaveTap("share")).toBe(true);
-    expect(needsManualSaveTap("download")).toBe(false);
+  it("iOS では常に、書き出し後の再タップが必要になる", () => {
+    // 共有シートも別タブも、ユーザー操作の直後しか開けない
+    expect(needsManualSaveTap({ ios: true })).toBe(true);
+    // 共有が使えない iOS でも同じ。効かないダウンロードを自動実行しないため
+    expect(needsManualSaveTap({ ios: false })).toBe(false);
   });
 });
 

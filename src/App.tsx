@@ -10,12 +10,15 @@ import {
   saveBlob,
   saveNeedsUserTap,
   type Bitrate,
+  type SaveOutcome,
 } from "./audio/export";
+import { isEmbedded } from "./audio/compat";
 import { INSTRUMENTS } from "./audio/instruments";
 import { Player } from "./audio/player";
 import { ChordCard } from "./components/ChordCard";
 import { FloatingTransport } from "./components/FloatingTransport";
 import { Keyboard } from "./components/Keyboard";
+import { NumberField } from "./components/NumberField";
 import { Palette } from "./components/Palette";
 import { pcName, prettyAccidentals } from "./music/notes";
 import { BASS_PATTERNS, CHORD_PATTERNS, DRUM_PATTERNS } from "./music/patterns";
@@ -50,6 +53,8 @@ export default function App() {
   const [exportState, setExportState] = useState<ExportState>({ kind: "idle" });
   const [bitrate, setBitrate] = useState<Bitrate>(192);
   const [copied, setCopied] = useState(false);
+  /** 直近の保存結果。iOS で保存経路が塞がれている場合の案内に使う。 */
+  const [saveNote, setSaveNote] = useState<SaveOutcome | null>(null);
 
   const playerRef = useRef<Player | null>(null);
   /** 最後に再生を開始した設定。設定変更で組み直すべきかの判定に使う。 */
@@ -180,7 +185,7 @@ export default function App() {
       // iOS Safari は blob URL の `<a download>` を無視するので、共有シートに渡す。
       // ただし共有シートはユーザー操作の直後しか開けず、ここまでの書き出しで
       // その権利が切れているため、改めてタップしてもらう。
-      const needsTap = saveNeedsUserTap(filename, blob.type);
+      const needsTap = saveNeedsUserTap();
       if (!needsTap) downloadBlob(blob, filename);
 
       setExportState({
@@ -201,8 +206,9 @@ export default function App() {
   /** 「保存」ボタン。ユーザー操作の中から共有シートを開く。 */
   const doSave = async () => {
     if (exportState.kind !== "ready") return;
+    setSaveNote(null);
     try {
-      await saveBlob(exportState.blob, exportState.filename);
+      setSaveNote(await saveBlob(exportState.blob, exportState.filename));
     } catch (err) {
       setExportState({ kind: "error", message: `保存できませんでした: ${describeError(err)}` });
     }
@@ -222,6 +228,14 @@ export default function App() {
 
   const transportRef = useRef<HTMLElement>(null);
   const exportBusy = exportState.kind === "working";
+  const embedded = isEmbedded();
+
+  /** 埋め込みから抜け出して、単独のタブでこのページを開く。 */
+  const openStandalone = () => {
+    // 進行を引き継げるよう、共有リンクと同じ形式で開く
+    window.open(shareUrl(song), "_blank", "noopener");
+  };
+
   const bars = totalBars(song);
   const seconds = arrangement.durationSeconds;
   const highlightNotes =
@@ -334,13 +348,38 @@ export default function App() {
             <button className="btn ghost small" onClick={releaseExport} aria-label="閉じる">
               ✕
             </button>
-            {exportState.needsTap && (
+            {exportState.needsTap && saveNote !== "blocked" && (
               <p className="hint" style={{ flexBasis: "100%", margin: "4px 0 0" }}>
                 書き出しできました。「ファイルに保存」を押すと共有シートが開くので、
                 <strong>「"ファイル"に保存」</strong>
                 を選んでください。うまくいかないときは「直接リンク」を長押し →
                 「リンク先のファイルをダウンロード」でも保存できます。
               </p>
+            )}
+
+            {saveNote === "opened" && (
+              <p className="hint" style={{ flexBasis: "100%", margin: "4px 0 0" }}>
+                別のタブでファイルを開きました。その画面の
+                <strong>共有ボタン（□に↑）</strong>から「"ファイル"に保存」を選んでください。
+              </p>
+            )}
+
+            {saveNote === "blocked" && (
+              <div className="save-blocked">
+                <p>
+                  <strong>このページからは保存できませんでした。</strong>
+                  {embedded
+                    ? "埋め込み表示の中では、iPhone のファイル保存がブラウザ側で禁止されています。"
+                    : "iPhone のブラウザがこの保存方法を許可していません。"}
+                </p>
+                <p>
+                  下のボタンでこのページを<strong>単独のタブとして開き直す</strong>と、
+                  共有シートから「"ファイル"に保存」できるようになります。
+                </p>
+                <button className="btn primary small" onClick={openStandalone}>
+                  ↗ このページを新しいタブで開く
+                </button>
+              </div>
             )}
           </div>
         )}
@@ -384,13 +423,16 @@ export default function App() {
 
           <div className="field">
             <label htmlFor="bpm">テンポ（BPM）</label>
-            <input
+            <NumberField
               id="bpm"
-              type="number"
               min={30}
               max={300}
+              step={1}
               value={song.bpm}
-              onChange={(e) => update({ bpm: Number(e.target.value) || 96 })}
+              ariaLabel="テンポ"
+              steppers
+              width={64}
+              onChange={(bpm) => update({ bpm })}
             />
           </div>
 
@@ -411,13 +453,16 @@ export default function App() {
 
           <div className="field">
             <label htmlFor="repeats">くり返し回数</label>
-            <input
+            <NumberField
               id="repeats"
-              type="number"
               min={1}
               max={16}
+              step={1}
               value={song.repeats}
-              onChange={(e) => update({ repeats: Number(e.target.value) || 1 })}
+              ariaLabel="くり返し回数"
+              steppers
+              width={48}
+              onChange={(repeats) => update({ repeats })}
             />
           </div>
         </div>

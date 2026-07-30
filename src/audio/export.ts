@@ -180,21 +180,36 @@ export function saveStrategyFor(filename: string, type: string): SaveStrategy {
 /**
  * 書き出しが終わったあと、保存に改めてタップが必要か。
  *
- * iOS では共有シートを使うため、書き出し完了後にユーザーの操作が要る。
+ * iOS では共有シートも別タブも、ユーザー操作の中からしか開けない。
  */
-export function saveNeedsUserTap(filename: string, type: string): boolean {
-  return needsManualSaveTap(saveStrategyFor(filename, type));
+export function saveNeedsUserTap(): boolean {
+  return needsManualSaveTap({
+    ios: typeof navigator !== "undefined" && isIosLike(navigator),
+  });
 }
 
-export type SaveOutcome = "shared" | "downloaded" | "cancelled";
+export type SaveOutcome =
+  | "shared"
+  | "downloaded"
+  | "cancelled"
+  /** 別タブでファイルを開いた。そこの共有ボタンから保存してもらう。 */
+  | "opened"
+  /** iOS で保存経路が残らなかった（埋め込み表示など）。 */
+  | "blocked";
 
 /**
  * ファイルを保存する。
  *
  * iOS Safari は blob URL に対する `<a download>` を無視するので、共有シートに
  * File を渡して「"ファイル"に保存」してもらう。必ずユーザー操作の中から呼ぶこと。
+ *
+ * iframe に埋め込まれていると Permissions Policy で web-share が拒否されるため、
+ * iOS では保存経路が残らない。その場合は "blocked" を返して、UI 側で
+ * 「別タブで開いてください」と案内する。黙って失敗させない。
  */
 export async function saveBlob(blob: Blob, filename: string): Promise<SaveOutcome> {
+  const ios = typeof navigator !== "undefined" && isIosLike(navigator);
+
   if (saveStrategyFor(filename, blob.type) === "share") {
     try {
       await navigator.share({
@@ -205,11 +220,29 @@ export async function saveBlob(blob: Blob, filename: string): Promise<SaveOutcom
     } catch (err) {
       // ユーザーが閉じただけならエラー扱いしない
       if (isAbortError(err)) return "cancelled";
-      // 共有できなかった場合は通常のダウンロードへ落とす
+      // 共有が拒否された場合は通常のダウンロードを試す
     }
   }
-  downloadBlob(blob, filename);
-  return "downloaded";
+
+  if (!ios) {
+    downloadBlob(blob, filename);
+    return "downloaded";
+  }
+
+  // iOS では download 属性が無視されるので、ダウンロードは試すだけ無駄。
+  // 代わりにファイルを別タブで開く。iOS はそこにプレイヤーを表示し、
+  // その画面の共有ボタンから「"ファイル"に保存」できる。
+  const url = URL.createObjectURL(blob);
+  const opened = window.open(url, "_blank");
+  if (opened) {
+    // 開いたタブが読み終わるまで URL を生かしておく
+    window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
+    return "opened";
+  }
+
+  // ポップアップも塞がれている = 埋め込み表示。打つ手がないので案内に切り替える。
+  URL.revokeObjectURL(url);
+  return "blocked";
 }
 
 /** ファイル名に使えない文字を落とす。 */
