@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
+import { useHistory } from "./history";
+
 import {
   artifactDownloads,
   BITRATES,
@@ -59,8 +61,14 @@ type ExportState =
   | { kind: "error"; message: string };
 
 export default function App() {
-  const [song, setSong] = useState<Song>(() => loadSong());
+  const history = useHistory<Song>(loadSong);
+  const song = history.present;
+  /** 曲データの更新はすべて履歴経由。label が同じ連続操作は1件にまとまる。 */
+  const setSong = history.set;
+
   const [loop, setLoop] = useState(true);
+  /** 画面下に短時間出す通知（プリセット読み込みの取り消し用）。 */
+  const [toast, setToast] = useState<string | null>(null);
   const [playing, setPlaying] = useState(false);
   const [activeChord, setActiveChord] = useState<number | null>(null);
   const [exportState, setExportState] = useState<ExportState>({ kind: "idle" });
@@ -110,13 +118,43 @@ export default function App() {
   // 画面を離れるときは音を止める
   useEffect(() => () => playerRef.current?.stop(), []);
 
-  const update = useCallback((patch: Partial<Song>) => {
-    setSong((s) => ({ ...s, ...patch }));
-  }, []);
+  // 通知は数秒で自動的に消す
+  useEffect(() => {
+    if (!toast) return;
+    const t = window.setTimeout(() => setToast(null), 7000);
+    return () => window.clearTimeout(t);
+  }, [toast]);
 
-  const updateChords = useCallback((fn: (chords: ChordSlot[]) => ChordSlot[]) => {
-    setSong((s) => ({ ...s, chords: fn(s.chords) }));
-  }, []);
+  // キーボードからも取り消せるように（PCで使うとき用）
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (!(e.metaKey || e.ctrlKey) || e.key.toLowerCase() !== "z") return;
+      const el = e.target as HTMLElement | null;
+      // 文字入力中は本来の取り消しに任せる
+      if (el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA")) return;
+      e.preventDefault();
+      if (e.shiftKey) history.redo();
+      else history.undo();
+      setToast(null);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [history]);
+
+  const update = useCallback(
+    (patch: Partial<Song>) => {
+      // 変更したキーをラベルにすると、同じスライダーの連続操作が自然に1件にまとまる
+      setSong((s) => ({ ...s, ...patch }), Object.keys(patch).join(","));
+    },
+    [setSong],
+  );
+
+  const updateChords = useCallback(
+    (fn: (chords: ChordSlot[]) => ChordSlot[], label = "chords") => {
+      setSong((s) => ({ ...s, chords: fn(s.chords) }), label);
+    },
+    [setSong],
+  );
 
   const handlePlay = async () => {
     const p = player();
@@ -356,6 +394,33 @@ export default function App() {
             <input type="checkbox" checked={loop} onChange={(e) => setLoop(e.target.checked)} />
             ループ
           </label>
+
+          <div className="undo-group">
+            <button
+              className="btn small"
+              onClick={() => {
+                history.undo();
+                setToast(null);
+              }}
+              disabled={!history.canUndo}
+              title="元に戻す"
+              aria-label="元に戻す"
+            >
+              ↶ 戻す
+            </button>
+            <button
+              className="btn small"
+              onClick={() => {
+                history.redo();
+                setToast(null);
+              }}
+              disabled={!history.canRedo}
+              title="やり直す"
+              aria-label="やり直す"
+            >
+              ↷
+            </button>
+          </div>
 
           <span className="spacer" />
 
@@ -846,13 +911,14 @@ export default function App() {
             <button
               key={p.id}
               className="preset"
-              onClick={() =>
-                setSong((s) => ({
-                  ...s,
-                  scale: p.scale,
-                  chords: presetToSlots(p, s.beatsPerBar),
-                }))
-              }
+              onClick={() => {
+                setSong(
+                  (s) => ({ ...s, scale: p.scale, chords: presetToSlots(p, s.beatsPerBar) }),
+                  `preset:${p.id}`,
+                );
+                // 今の進行が置き換わったことに気づけるよう、取り消し手段を出す
+                setToast(`「${p.name}」を読み込みました`);
+              }}
             >
               <div className="pname">{p.name}</div>
               <div className="phint">{p.hint}</div>
@@ -881,6 +947,29 @@ export default function App() {
         音源はブラウザの Web Audio API で合成しています。MP3 のエンコードも端末内で行われ、
         音声データがどこかへ送信されることはありません。
       </footer>
+
+      {toast && (
+        <div className="toast" role="status">
+          <span className="toast-text">{toast}</span>
+          <button
+            className="btn small primary"
+            onClick={() => {
+              history.undo();
+              setToast(null);
+            }}
+            disabled={!history.canUndo}
+          >
+            ↶ 元に戻す
+          </button>
+          <button
+            className="btn small ghost"
+            onClick={() => setToast(null)}
+            aria-label="通知を閉じる"
+          >
+            ✕
+          </button>
+        </div>
+      )}
 
       <FloatingTransport
         watch={transportRef}

@@ -651,6 +651,64 @@ button:focus-visible {
   font-size: 13px;
 }
 
+/* --- 元に戻す / やり直す --- */
+
+.undo-group {
+  display: inline-flex;
+  gap: 4px;
+}
+
+.undo-group .btn {
+  font-variant-numeric: tabular-nums;
+}
+
+/* --- 通知（プリセット読み込みの取り消し） --- */
+
+.toast {
+  position: fixed;
+  left: 50%;
+  /* 追従バーの上に重ねる */
+  bottom: calc(78px + env(safe-area-inset-bottom));
+  z-index: 60;
+  width: min(560px, calc(100% - 20px));
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  background: rgba(20, 23, 34, 0.98);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid var(--accent);
+  border-radius: var(--radius);
+  box-shadow: 0 12px 34px -10px rgba(0, 0, 0, 0.8);
+  transform: translateX(-50%);
+  animation: toast-in 0.2s ease;
+}
+
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translate(-50%, 10px);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .toast {
+    animation: none;
+  }
+}
+
+.toast-text {
+  flex: 1;
+  min-width: 0;
+  font-size: 13px;
+  line-height: 1.4;
+}
+
 /* --- 追従する操作バー --- */
 
 .floating-transport {
