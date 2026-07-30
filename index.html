@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>えほんメーカー — 0〜3歳のための絵本づくり</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='18' fill='%23e07a5f'/%3E%3Crect x='14' y='22' width='72' height='56' rx='7' fill='%23fffdf7'/%3E%3Cpath d='M50 22v56' stroke='%23e6d8c3' stroke-width='4'/%3E%3Ccircle cx='32' cy='44' r='9' fill='%23ff6b6b'/%3E%3Ccircle cx='68' cy='44' r='9' fill='%235bb8e8'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="css/app.css">
+</head>
+<body>
+
+<header class="toolbar" id="toolbar">
+  <div class="toolbar__brand">
+    <span class="toolbar__logo" aria-hidden="true">
+      <svg viewBox="0 0 100 100"><rect x="10" y="18" width="80" height="64" rx="8" fill="#fffdf7"/><path d="M50 18v64" stroke="#e6d8c3" stroke-width="4"/><circle cx="30" cy="42" r="10" fill="#ff6b6b"/><circle cx="70" cy="42" r="10" fill="#5bb8e8"/><rect x="18" y="62" width="24" height="5" rx="2.5" fill="#e6d8c3"/><rect x="58" y="62" width="24" height="5" rx="2.5" fill="#e6d8c3"/></svg>
+    </span>
+    <span>
+      <strong>えほんメーカー</strong>
+      <em id="toolbarTitle">—</em>
+    </span>
+  </div>
+  <nav class="toolbar__tools">
+    <button class="btn" data-tool="new">あたらしく</button>
+    <button class="btn" data-tool="sample">サンプル</button>
+    <button class="btn" data-tool="open">ひらく</button>
+    <button class="btn" data-tool="save">ほぞん</button>
+    <button class="btn" data-tool="html">HTMLに書き出す</button>
+    <button class="btn" data-tool="print">いんさつ</button>
+    <button class="btn btn--primary" data-tool="read">▶ よむ</button>
+  </nav>
+</header>
+
+<div id="app"></div>
+
+<input type="file" id="fileInput" accept=".json,application/json" hidden>
+
+<script src="js/shapes.js"></script>
+<script src="js/illustrate.js"></script>
+<script src="js/book.js"></script>
+<script src="js/autolayout.js"></script>
+<script src="books/kororo-pon.js"></script>
+<script src="js/reader.js"></script>
+<script src="js/export.js"></script>
+<script src="js/editor.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,402 @@
+/* えほんメーカー — 画面のスタイル */
+
+:root {
+  --ink: #43362a;
+  --paper: #fffdf7;
+  --cream: #f6efe2;
+  --line: #e3d7c2;
+  --accent: #e07a5f;
+  --accent-soft: #fdece4;
+  --shadow: 0 2px 0 rgba(67, 54, 42, .18);
+  --font: "Hiragino Maru Gothic ProN", "ヒラギノ丸ゴ ProN W4", "Yu Gothic", YuGothic, Meiryo, "M PLUS Rounded 1c", sans-serif;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  height: 100%;
+}
+
+body {
+  font-family: var(--font);
+  color: var(--ink);
+  background: var(--cream);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+body.is-reading { overflow: hidden; }
+
+/* ---------- ツールバー ---------- */
+
+.toolbar {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 10px 16px;
+  background: var(--paper);
+  border-bottom: 2px solid var(--line);
+  flex-wrap: wrap;
+}
+
+.toolbar__brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-right: auto;
+}
+
+.toolbar__logo {
+  width: 36px;
+  height: 36px;
+  display: block;
+  background: var(--accent);
+  border-radius: 10px;
+}
+.toolbar__logo svg { width: 100%; height: 100%; display: block; }
+
+.toolbar__brand strong { display: block; font-size: 16px; letter-spacing: .5px; }
+.toolbar__brand em {
+  display: block;
+  font-style: normal;
+  font-size: 12px;
+  opacity: .6;
+  max-width: 30ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.toolbar__tools { display: flex; gap: 8px; flex-wrap: wrap; }
+
+/* ---------- ボタン ---------- */
+
+.btn {
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--ink);
+  background: var(--paper);
+  border: 2px solid var(--line);
+  border-radius: 999px;
+  padding: 7px 14px;
+  cursor: pointer;
+  box-shadow: var(--shadow);
+  transition: transform .08s, background .15s;
+}
+.btn:hover:not(:disabled) { background: var(--accent-soft); }
+.btn:active:not(:disabled) { transform: translateY(2px); box-shadow: none; }
+.btn:disabled { opacity: .38; cursor: default; }
+
+.btn--primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+.btn--primary:hover:not(:disabled) { background: #cf6a50; }
+.btn--danger { color: #b23a2c; border-color: #f0c9c2; }
+.btn--ghost { background: rgba(255, 253, 247, .16); color: var(--paper); border-color: rgba(255, 253, 247, .38); }
+.btn--ghost.is-on { background: var(--paper); color: var(--ink); }
+.btn--sm { font-size: 12px; padding: 5px 10px; }
+.btn--block { display: block; width: 100%; }
+
+/* ---------- 3 カラム ---------- */
+
+.editor {
+  flex: 1 1 auto;
+  display: grid;
+  grid-template-columns: 168px minmax(0, 1fr) 330px;
+  min-height: 0;
+}
+
+.pane {
+  min-height: 0;
+  overflow-y: auto;
+  padding: 12px;
+}
+
+.pane--pages {
+  background: #efe6d5;
+  border-right: 2px solid var(--line);
+  display: flex;
+  flex-direction: column;
+}
+.pane--canvas {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  overflow: hidden;
+}
+.pane--inspect {
+  background: var(--paper);
+  border-left: 2px solid var(--line);
+}
+
+.pane__title {
+  font-size: 12px;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  opacity: .55;
+  margin: 0 0 8px;
+}
+.pane__foot { margin-top: 10px; }
+
+/* ---------- ページ一覧 ---------- */
+
+.pagelist { flex: 1 1 auto; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; }
+
+.pagecard {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px;
+  border: 2px solid transparent;
+  border-radius: 10px;
+  cursor: pointer;
+  background: rgba(255, 253, 247, .5);
+}
+.pagecard:hover { background: var(--paper); }
+.pagecard.is-on { border-color: var(--accent); background: var(--paper); }
+
+.pagecard__no { font-size: 11px; font-weight: 700; width: 2.4em; text-align: center; opacity: .6; }
+.pagecard__thumb {
+  flex: 1 1 auto;
+  aspect-ratio: 1 / 1;
+  border-radius: 6px;
+  overflow: hidden;
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, .12);
+}
+.pagecard__thumb svg { width: 100%; height: 100%; display: block; }
+
+/* ---------- キャンバス ---------- */
+
+.canvas__head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  max-width: 620px;
+  padding: 0 2px 8px;
+  font-size: 14px;
+}
+.canvas__sub { font-size: 12px; opacity: .55; }
+.spacer { flex: 1 1 auto; }
+
+.canvas {
+  width: min(100%, 620px);
+  aspect-ratio: 1 / 1;
+  max-height: calc(100vh - 210px);
+  border-radius: 16px;
+  overflow: hidden;
+  background: var(--paper);
+  box-shadow: 0 10px 28px rgba(67, 54, 42, .22);
+  touch-action: none;
+}
+.canvas svg { width: 100%; height: 100%; display: block; }
+
+.ehon-item { cursor: grab; }
+.ehon-item.is-selected {
+  outline: none;
+  filter: drop-shadow(0 0 1.4px #e07a5f) drop-shadow(0 0 1.4px #e07a5f) drop-shadow(0 0 3px rgba(224, 122, 95, .8));
+}
+
+.hint { font-size: 12px; opacity: .6; margin: 10px 0 0; text-align: center; }
+.hint--tight { margin: 6px 0 0; text-align: left; line-height: 1.5; }
+
+/* ---------- インスペクタ ---------- */
+
+.box {
+  border: 2px solid var(--line);
+  border-radius: 12px;
+  padding: 10px;
+  margin-bottom: 12px;
+}
+.box--accent { border-color: #f0cdbf; background: var(--accent-soft); }
+.box__label { font-size: 12px; font-weight: 700; opacity: .6; margin: 8px 0 5px; }
+
+.input {
+  font: inherit;
+  font-size: 14px;
+  width: 100%;
+  color: var(--ink);
+  background: #fff;
+  border: 2px solid var(--line);
+  border-radius: 8px;
+  padding: 8px;
+  margin-bottom: 6px;
+}
+.input:focus { outline: 2px solid var(--accent); outline-offset: -2px; }
+.input--area { resize: vertical; line-height: 1.6; }
+
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip {
+  font: inherit;
+  font-size: 11px;
+  font-weight: 700;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  width: 62px;
+  padding: 4px;
+  background: #fff;
+  border: 2px solid var(--line);
+  border-radius: 9px;
+  cursor: pointer;
+}
+.chip.is-on { border-color: var(--accent); }
+.chip__art { width: 100%; aspect-ratio: 1/1; border-radius: 5px; overflow: hidden; display: block; }
+
+.palette { display: grid; grid-template-columns: repeat(4, 1fr); gap: 5px; }
+.palette__btn {
+  font: inherit;
+  font-size: 10px;
+  font-weight: 700;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  background: #fff;
+  border: 2px solid var(--line);
+  border-radius: 9px;
+  padding: 3px 2px;
+  cursor: pointer;
+  line-height: 1.2;
+}
+.palette__btn:hover { border-color: var(--accent); background: var(--accent-soft); }
+
+.mini { width: 100%; aspect-ratio: 1/1; display: block; }
+/* 白い絵（くも・うさぎ・ひつじ）が白地に溶けないよう下地を敷く */
+.palette__btn .mini, .layer .mini { background: #eaf4fa; border-radius: 6px; }
+
+.layers { display: flex; flex-direction: column; gap: 4px; }
+.layer {
+  font: inherit;
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: #fff;
+  border: 2px solid var(--line);
+  border-radius: 9px;
+  padding: 3px 8px;
+  cursor: pointer;
+  text-align: left;
+}
+.layer.is-on { border-color: var(--accent); background: var(--accent-soft); }
+.layer .mini { width: 26px; flex: 0 0 26px; }
+
+.props { margin-top: 10px; border-top: 2px dashed var(--line); padding-top: 10px; }
+.prop { display: block; font-size: 12px; font-weight: 700; margin-bottom: 8px; }
+.prop > span { display: block; opacity: .6; margin-bottom: 3px; }
+.prop input[type=range] { width: 100%; accent-color: var(--accent); }
+.prop--row { display: flex; flex-wrap: wrap; gap: 5px; }
+.prop--check { display: flex; align-items: center; gap: 6px; }
+.prop--check > span { margin: 0; opacity: .8; }
+
+.swatches { display: flex; flex-wrap: wrap; gap: 5px; }
+.swatch {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: 2px solid var(--line);
+  cursor: pointer;
+  padding: 0;
+}
+.swatch.is-on { border-color: var(--ink); transform: scale(1.14); }
+.swatch--pick { background: #fff; }
+
+/* ---------- 読むビュー ---------- */
+
+.reader {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  background: #2a2622;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  padding: 16px;
+}
+
+.reader__stage { position: relative; display: flex; align-items: center; gap: 10px; }
+
+.reader__page {
+  width: min(88vw, calc(100vh - 130px));
+  aspect-ratio: 1 / 1;
+  border-radius: 20px;
+  overflow: hidden;
+  background: var(--paper);
+  box-shadow: 0 18px 50px rgba(0, 0, 0, .5);
+  touch-action: pan-y;
+}
+.reader__page svg { width: 100%; height: 100%; display: block; }
+
+.ehon-page.is-turn { animation: pageIn .32s ease both; }
+.ehon-page.is-turn-back { animation: pageInBack .32s ease both; }
+@keyframes pageIn { from { opacity: 0; transform: translateX(18px) scale(.985); } }
+@keyframes pageInBack { from { opacity: 0; transform: translateX(-18px) scale(.985); } }
+
+.reader__nav {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  border: 0;
+  font-size: 26px;
+  line-height: 1;
+  color: var(--ink);
+  background: rgba(255, 253, 247, .92);
+  cursor: pointer;
+  box-shadow: 0 3px 10px rgba(0, 0, 0, .3);
+}
+.reader__nav--prev { left: -58px; }
+.reader__nav--next { right: -58px; }
+.reader__nav:disabled { opacity: .25; cursor: default; }
+
+@media (max-width: 760px) {
+  .reader__nav--prev { left: 6px; }
+  .reader__nav--next { right: 6px; }
+}
+
+.reader__bar { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; justify-content: center; }
+.reader__dots { display: flex; gap: 6px; flex-wrap: wrap; justify-content: center; max-width: 60vw; }
+.reader__dot {
+  width: 10px;
+  height: 10px;
+  padding: 0;
+  border-radius: 50%;
+  border: 0;
+  background: rgba(255, 253, 247, .35);
+  cursor: pointer;
+}
+.reader__dot.is-on { background: var(--paper); transform: scale(1.3); }
+
+/* ---------- 印刷 ---------- */
+
+#printArea { display: none; }
+
+@media print {
+  body { overflow: visible; background: #fff; }
+  .toolbar, #app, .reader { display: none !important; }
+  #printArea { display: block; }
+  .print-sheet { page-break-after: always; width: 100%; }
+  .print-sheet svg { width: 100%; height: auto; display: block; }
+  @page { margin: 8mm; }
+}
+
+/* ---------- せまい画面 ---------- */
+
+@media (max-width: 960px) {
+  body { overflow: auto; }
+  .editor { grid-template-columns: 1fr; }
+  .pane { overflow: visible; }
+  .pane--pages { border-right: 0; border-bottom: 2px solid var(--line); }
+  .pagelist { flex-direction: row; overflow-x: auto; }
+  .pagecard { flex: 0 0 108px; flex-direction: column; }
+  .pane--inspect { border-left: 0; border-top: 2px solid var(--line); }
+  .canvas { max-height: none; }
+}

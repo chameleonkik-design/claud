@@ -1,0 +1,9 @@
+{
+  "name": "ehon-maker",
+  "version": "1.0.0",
+  "description": "0〜3歳向けの絵本をつくるツール。文章から絵本を組み立て、読む・書き出す・印刷する。",
+  "private": true,
+  "scripts": {
+    "test": "node test/smoke.js"
+  }
+}
