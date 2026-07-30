@@ -37,13 +37,21 @@ npm run dev      # 開発サーバー（http://localhost:5173）
 ```
 
 ```bash
-npm run build    # 型チェック + 本番ビルド → dist/
-npm run preview  # ビルド結果を確認
-npm test         # テスト（音楽理論・アレンジ・エンコーダ）
+npm run build         # 型チェック + 本番ビルド → dist/
+npm run build:single  # 1枚のHTMLにまとめる → dist-single/
+npm run preview       # ビルド結果を確認
+npm test              # テスト（音楽理論・アレンジ・エンコーダ）
 ```
 
+### 置き場所
+
 `vite.config.ts` で `base: "./"` にしてあるので、`dist/` をそのまま静的ホスティング
-（GitHub Pages のサブディレクトリ配信など）に置いても動きます。
+（GitHub Pages のサブディレクトリ配信など）に置けます。
+
+`npm run build:single` は CSS と JS をインライン化した
+`dist-single/chord-progression-studio.html` を作ります。**外部ファイルを一切
+読み込まない1枚のHTML**なので、ダブルクリックでそのままブラウザで開けますし、
+ファイルを1つ配るだけで誰にでも渡せます。
 
 ---
 
