@@ -398,6 +398,10 @@ button:focus-visible {
 }
 
 .chip {
+  /* 長押しで試聴するので、iOS の選択メニューや虫めがねが出ないようにする */
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
   background: var(--bg-input);
   border: 1px solid var(--border);
   border-radius: 99px;

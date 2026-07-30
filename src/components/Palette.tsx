@@ -12,6 +12,7 @@ import {
   type DerivedChord,
 } from "../music/scales";
 import type { Song } from "../music/song";
+import { useLongPress } from "../useLongPress";
 
 interface Props {
   song: Song;
@@ -35,18 +36,29 @@ function Chips({
   onAdd: (offset: number, quality: string) => void;
   onPreview: (offset: number, quality: string) => void;
 }) {
+  // 「key」は "offset:quality" の形。長押しされたコードを引き当てるのに使う。
+  const longPress = useLongPress((key) => {
+    const [offset, quality] = key.split(":");
+    onPreview(Number(offset), quality);
+  });
+
   return (
     <div className="palette">
       {chords.map((c, i) => (
         <button
           key={`${c.offset}-${c.quality}-${i}`}
           className={`chip${borrowed ? " borrowed" : ""}`}
-          onClick={() => onAdd(c.offset, c.quality)}
+          {...longPress.handlers(`${c.offset}:${c.quality}`)}
+          onClick={() => {
+            // 長押しで試聴したときは、続けて飛んでくる click で追加しない
+            if (longPress.didLongPress()) return;
+            onAdd(c.offset, c.quality);
+          }}
           onContextMenu={(e) => {
             e.preventDefault();
             onPreview(c.offset, c.quality);
           }}
-          title="クリックで進行に追加 / 右クリックで試聴"
+          title="タップで進行に追加 / 長押しで試聴"
         >
           <span>
             {prettyChordName(
