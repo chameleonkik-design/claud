@@ -47,6 +47,15 @@ export class Player {
     if (ctx.state === "suspended") await ctx.resume();
   }
 
+  /**
+   * 録音などで使い回すための AudioContext。
+   * ユーザー操作の中で呼ぶこと（iOS は操作なしでは再開できない）。
+   */
+  async audioContext(): Promise<AudioContext> {
+    await this.unlock();
+    return this.ensureContext();
+  }
+
   async play(song: Song, loop: boolean): Promise<void> {
     this.stop();
     await this.unlock();

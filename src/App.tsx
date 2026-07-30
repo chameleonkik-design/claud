@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import {
+  artifactDownloads,
   BITRATES,
   downloadBlob,
   encodeMp3,
@@ -9,9 +10,11 @@ import {
   safeFilename,
   saveBlob,
   saveNeedsUserTap,
+  saveViaArtifact,
   type Bitrate,
   type SaveOutcome,
 } from "./audio/export";
+import { pickRecorderFormat, recordBuffer } from "./audio/recorder";
 import { isEmbedded, isIosDevice } from "./audio/compat";
 import { INSTRUMENTS } from "./audio/instruments";
 import { Player } from "./audio/player";
@@ -37,7 +40,7 @@ import { loadSong, saveSong, shareUrl } from "./state";
 
 type ExportState =
   | { kind: "idle" }
-  | { kind: "working"; ratio: number; phase: "render" | "encode"; format: string }
+  | { kind: "working"; ratio: number; phase: "render" | "encode" | "record"; format: string }
   /**
    * 書き出しは終わったが、保存はまだ。
    * iOS では共有シートを開くのにユーザー操作が要るので、この状態でボタンを出す。
@@ -203,12 +206,80 @@ export default function App() {
     }
   };
 
+  /**
+   * 埋め込み表示での書き出し。
+   *
+   * 埋め込みの中では mp3 / wav を渡せないので、MediaRecorder でブラウザ内蔵の
+   * 形式（Safari なら AAC 入り MP4）を作り、Artifact の保存機能に渡す。
+   * 録音は実時間かかるので、進捗を出しながら進める。
+   */
+  const doArtifactExport = async () => {
+    if (song.chords.length === 0) return;
+    releaseExport();
+    playerRef.current?.stop();
+    setPlaying(false);
+    setSaveNote(null);
+
+    const fmt = pickRecorderFormat();
+    if (!fmt) {
+      setExportState({
+        kind: "error",
+        message: "このブラウザは音声ファイルの作成に対応していません。",
+      });
+      return;
+    }
+
+    try {
+      // 先に AudioContext を起こす。あとの await でユーザー操作の権利が切れるため、
+      // クリック直後のこの時点で resume しておく必要がある。
+      const ctx = await player().audioContext();
+
+      setExportState({ kind: "working", ratio: 0, phase: "render", format: fmt.extension.toUpperCase() });
+      const buffer = await renderSong(song, (ratio, phase) =>
+        setExportState({ kind: "working", ratio, phase, format: fmt.extension.toUpperCase() }),
+      );
+
+      const { blob, format } = await recordBuffer(ctx, buffer, (ratio) =>
+        setExportState({
+          kind: "working",
+          ratio,
+          phase: "record",
+          format: fmt.extension.toUpperCase(),
+        }),
+      );
+
+      const name = safeFilename(
+        `${pcName(song.tonic, useFlats)}_${song.chords.length}chords_${song.bpm}bpm`,
+      );
+      const filename = `${name}.${format.extension}`;
+      setExportState({
+        kind: "ready",
+        blob,
+        filename,
+        url: URL.createObjectURL(blob),
+        needsTap: true,
+      });
+      // 録音の直後はまだ操作の権利が残っているので、そのまま保存を試す
+      setSaveNote(await saveViaArtifact(blob, filename));
+    } catch (err) {
+      setExportState({
+        kind: "error",
+        message: `書き出しに失敗しました: ${describeError(err)}`,
+      });
+    }
+  };
+
   /** 「保存」ボタン。ユーザー操作の中から共有シートを開く。 */
   const doSave = async () => {
     if (exportState.kind !== "ready") return;
     setSaveNote(null);
     try {
-      setSaveNote(await saveBlob(exportState.blob, exportState.filename));
+      // 埋め込み表示ではランタイムの保存機能が唯一の経路
+      setSaveNote(
+        artifactSave
+          ? await saveViaArtifact(exportState.blob, exportState.filename)
+          : await saveBlob(exportState.blob, exportState.filename),
+      );
     } catch (err) {
       setExportState({ kind: "error", message: `保存できませんでした: ${describeError(err)}` });
     }
@@ -229,12 +300,14 @@ export default function App() {
   const transportRef = useRef<HTMLElement>(null);
   const exportBusy = exportState.kind === "working";
   const embedded = isEmbedded();
+  /** 埋め込み表示で使える保存機能。あるならこちらが唯一の保存経路。 */
+  const artifactSave = artifactDownloads();
+  const recorderFormat = pickRecorderFormat();
   /**
-   * 保存が確実に失敗する組み合わせ。
-   * iOS で他ページに埋め込まれていると、共有シートもポップアップも塞がれる。
-   * 20秒かけて書き出したあとに失敗を知らせるのは無駄なので、先に伝える。
+   * 保存する手段が本当に無い組み合わせ。
+   * iOS で他ページに埋め込まれていて、かつランタイムの保存機能も無い場合。
    */
-  const cannotSaveHere = embedded && isIosDevice();
+  const cannotSaveHere = embedded && isIosDevice() && !artifactSave;
 
   const bars = totalBars(song);
   const seconds = arrangement.durationSeconds;
@@ -274,35 +347,54 @@ export default function App() {
 
           <span className="spacer" />
 
-          <div className="field">
-            <label htmlFor="bitrate">ビットレート</label>
-            <select
-              id="bitrate"
-              value={bitrate}
-              onChange={(e) => setBitrate(Number(e.target.value) as Bitrate)}
+          {artifactSave ? (
+            // 埋め込み表示。mp3 / wav は渡せないので、ブラウザ内蔵の形式で保存する。
+            <button
+              className="btn accent"
+              onClick={() => void doArtifactExport()}
+              disabled={exportBusy || song.chords.length === 0 || !recorderFormat}
+              title={
+                recorderFormat
+                  ? `${recorderFormat.label} として保存します`
+                  : "このブラウザでは音声ファイルを作成できません"
+              }
             >
-              {BITRATES.map((b) => (
-                <option key={b} value={b}>
-                  {b} kbps
-                </option>
-              ))}
-            </select>
-          </div>
+              ⬇ 音声ファイルを保存
+              {recorderFormat ? `（${recorderFormat.extension}）` : ""}
+            </button>
+          ) : (
+            <>
+              <div className="field">
+                <label htmlFor="bitrate">ビットレート</label>
+                <select
+                  id="bitrate"
+                  value={bitrate}
+                  onChange={(e) => setBitrate(Number(e.target.value) as Bitrate)}
+                >
+                  {BITRATES.map((b) => (
+                    <option key={b} value={b}>
+                      {b} kbps
+                    </option>
+                  ))}
+                </select>
+              </div>
 
-          <button
-            className="btn accent"
-            onClick={() => void doExport("mp3")}
-            disabled={exportBusy || song.chords.length === 0}
-          >
-            ⬇ MP3をダウンロード
-          </button>
-          <button
-            className="btn"
-            onClick={() => void doExport("wav")}
-            disabled={exportBusy || song.chords.length === 0}
-          >
-            WAV
-          </button>
+              <button
+                className="btn accent"
+                onClick={() => void doExport("mp3")}
+                disabled={exportBusy || song.chords.length === 0}
+              >
+                ⬇ MP3をダウンロード
+              </button>
+              <button
+                className="btn"
+                onClick={() => void doExport("wav")}
+                disabled={exportBusy || song.chords.length === 0}
+              >
+                WAV
+              </button>
+            </>
+          )}
           <button className="btn ghost" onClick={() => void copyShareUrl()}>
             {copied ? "✓ コピーしました" : "🔗 共有リンク"}
           </button>
@@ -315,7 +407,11 @@ export default function App() {
             <>
               {" — "}
               {exportState.format}{" "}
-              {exportState.phase === "render" ? "レンダリング中" : "エンコード中"}{" "}
+              {exportState.phase === "render"
+                ? "レンダリング中"
+                : exportState.phase === "record"
+                  ? "音声ファイルを作成中（曲の長さぶん時間がかかります）"
+                  : "エンコード中"}{" "}
               {Math.round(exportState.ratio * 100)}%
             </>
           )}
@@ -342,6 +438,15 @@ export default function App() {
           </p>
         )}
 
+        {artifactSave && exportState.kind === "idle" && (
+          <p className="notice">
+            この表示では <strong>{recorderFormat?.label ?? "音声"}</strong>{" "}
+            として保存します（埋め込み表示では MP3 を渡せないため）。iPhone の「ファイル」
+            アプリでそのまま再生できます。作成中は曲の長さぶん待ち時間があるので、
+            画面を開いたままにしてください。
+          </p>
+        )}
+
         {exportState.kind === "ready" && (
           <div className="save-ready">
             <div className="save-file">
@@ -349,15 +454,31 @@ export default function App() {
               <span className="save-size">{formatBytes(exportState.blob.size)}</span>
             </div>
             <button className="btn accent" onClick={() => void doSave()}>
-              {exportState.needsTap ? "📥 ファイルに保存" : "もう一度保存"}
+              {saveNote === "downloaded" ? "もう一度保存" : "📥 ファイルに保存"}
             </button>
-            <a className="btn ghost small" href={exportState.url} download={exportState.filename}>
-              直接リンク
-            </a>
+            {/* blob リンクは埋め込みの中では機能しないので出さない */}
+            {!artifactSave && (
+              <a className="btn ghost small" href={exportState.url} download={exportState.filename}>
+                直接リンク
+              </a>
+            )}
             <button className="btn ghost small" onClick={releaseExport} aria-label="閉じる">
               ✕
             </button>
-            {exportState.needsTap && saveNote !== "blocked" && (
+
+            {artifactSave && saveNote === "downloaded" && (
+              <p className="hint" style={{ flexBasis: "100%", margin: "4px 0 0" }}>
+                ✅ 保存しました。iPhone なら「ファイル」アプリのダウンロードフォルダに入っています。
+              </p>
+            )}
+
+            {artifactSave && saveNote === "cancelled" && (
+              <p className="hint" style={{ flexBasis: "100%", margin: "4px 0 0" }}>
+                保存を中止しました。「ファイルに保存」でもう一度確認できます。
+              </p>
+            )}
+
+            {!artifactSave && exportState.needsTap && saveNote !== "blocked" && (
               <p className="hint" style={{ flexBasis: "100%", margin: "4px 0 0" }}>
                 書き出しできました。「ファイルに保存」を押すと共有シートが開くので、
                 <strong>「"ファイル"に保存」</strong>
