@@ -762,6 +762,74 @@ button:focus-visible {
   font-variant-numeric: tabular-nums;
 }
 
+/* --- プリセットを掴んだときのドロップ先とゴースト --- */
+
+.preset.dragging {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent);
+  opacity: 0.5;
+}
+
+.drop-zone {
+  position: fixed;
+  left: 50%;
+  top: max(12px, env(safe-area-inset-top));
+  z-index: 70;
+  width: min(560px, calc(100% - 20px));
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 14px 16px;
+  background: rgba(20, 23, 34, 0.98);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 2px dashed var(--border-strong);
+  border-radius: var(--radius);
+  box-shadow: 0 12px 34px -10px rgba(0, 0, 0, 0.8);
+  text-align: center;
+  pointer-events: none;
+  transition: border-color 0.15s, background 0.15s, transform 0.15s;
+}
+
+.drop-zone strong {
+  font-size: 14px;
+}
+
+.drop-zone span {
+  font-size: 12px;
+  color: var(--text-dim);
+}
+
+.drop-zone.over {
+  border-color: var(--accent-2);
+  border-style: solid;
+  background: rgba(56, 209, 182, 0.16);
+  transform: translateX(-50%) scale(1.02);
+}
+
+.drop-zone.over span {
+  color: var(--text);
+}
+
+/* 指を追う印 */
+.drag-ghost {
+  position: fixed;
+  left: 0;
+  top: 0;
+  z-index: 80;
+  pointer-events: none;
+  padding: 7px 13px;
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+  color: #0c1020;
+  background: linear-gradient(180deg, #7b98ff, #5a78f0);
+  border-radius: 999px;
+  box-shadow: 0 8px 20px -6px rgba(0, 0, 0, 0.7);
+}
+
 /* --- 通知（プリセット読み込みの取り消し） --- */
 
 .toast {
@@ -900,6 +968,36 @@ button:focus-visible {
   font-size: 11px;
   color: var(--text-faint);
   font-variant-numeric: tabular-nums;
+}
+
+.fab-undo {
+  flex: none;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  border: 1px solid var(--border-strong);
+  background: var(--bg-input);
+  color: var(--text-dim);
+  font-size: 16px;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.12s, color 0.12s, transform 0.08s;
+}
+
+.fab-undo:hover:not(:disabled) {
+  background: #272d42;
+  color: var(--text);
+}
+
+.fab-undo:active:not(:disabled) {
+  transform: scale(0.92);
+}
+
+.fab-undo:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
 }
 
 .footer {

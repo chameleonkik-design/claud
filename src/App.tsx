@@ -50,6 +50,7 @@ import {
 } from "./state";
 import { SavedSongs, summarize } from "./components/SavedSongs";
 import { useDragReorder } from "./useDragReorder";
+import { useLongPressDrag } from "./useLongPressDrag";
 
 type ExportState =
   | { kind: "idle" }
@@ -380,6 +381,35 @@ export default function App() {
       .map((id) => byId.get(id))
       .filter((c): c is (typeof resolved)[number] => c !== undefined);
   }, [drag.order, resolved]);
+
+  // --- プリセットを長押しして進行に追加 ---
+  const timelineRef = useRef<HTMLDivElement>(null);
+  const dropZoneRef = useRef<HTMLDivElement>(null);
+
+  const hitsDropTarget = useCallback((x: number, y: number) => {
+    // 画面上部に出る固定のドロップ先か、進行そのものの上なら受け付ける
+    for (const el of [dropZoneRef.current, timelineRef.current]) {
+      if (!el) continue;
+      const r = el.getBoundingClientRect();
+      if (x >= r.left && x <= r.right && y >= r.top && y <= r.bottom) return true;
+    }
+    return false;
+  }, []);
+
+  const presetDrag = useLongPressDrag({
+    isOverTarget: hitsDropTarget,
+    onDrop: (id) => {
+      const preset = PRESETS.find((p) => p.id === id);
+      if (!preset) return;
+      updateChords(
+        (chords) => [...chords, ...presetToSlots(preset, song.beatsPerBar)],
+        `append:${id}`,
+      );
+      setToast(`「${preset.name}」を末尾に追加しました`);
+    },
+  });
+
+  const draggedPreset = PRESETS.find((p) => p.id === presetDrag.activeId) ?? null;
 
   const transportRef = useRef<HTMLElement>(null);
   const exportBusy = exportState.kind === "working";
@@ -858,7 +888,7 @@ export default function App() {
       {/* --- 進行 --- */}
       <section className="panel">
         <h2>コード進行</h2>
-        <div className="timeline">
+        <div className="timeline" ref={timelineRef}>
           {displayedChords.map((c, i) => (
             <ChordCard
               key={c.slot.id}
@@ -965,6 +995,19 @@ export default function App() {
         onDelete={(entry) => setSaved(deleteSavedSong(entry.id))}
       />
 
+      {/* --- パレット --- */}
+      <Palette
+        song={song}
+        useFlats={useFlats}
+        onAdd={(offset, quality) =>
+          updateChords((chords) => [
+            ...chords,
+            makeSlot(offset, quality, chords.at(-1)?.beats ?? song.beatsPerBar),
+          ])
+        }
+        onPreview={previewChord}
+      />
+
       {/* --- プリセット --- */}
       <section className="panel">
         <h2>定番進行プリセット</h2>
@@ -972,8 +1015,11 @@ export default function App() {
           {PRESETS.map((p) => (
             <button
               key={p.id}
-              className="preset"
+              className={`preset${presetDrag.activeId === p.id ? " dragging" : ""}`}
+              {...presetDrag.handlers(p.id)}
               onClick={() => {
+                // 長押しドラッグの直後はクリックとして扱わない
+                if (presetDrag.activeId) return;
                 setSong(
                   (s) => ({ ...s, scale: p.scale, chords: presetToSlots(p, s.beatsPerBar) }),
                   `preset:${p.id}`,
@@ -988,27 +1034,38 @@ export default function App() {
           ))}
         </div>
         <p className="hint">
+          タップすると<strong>今の進行と置き換え</strong>、
+          <strong>長押しして上のドロップ先に離すと末尾に追加</strong>します。
+          <br />
           プリセットはキーに依存しません。読み込んだあとにキーを変えれば、そのまま移調されます。
         </p>
       </section>
-
-      {/* --- パレット --- */}
-      <Palette
-        song={song}
-        useFlats={useFlats}
-        onAdd={(offset, quality) =>
-          updateChords((chords) => [
-            ...chords,
-            makeSlot(offset, quality, chords.at(-1)?.beats ?? song.beatsPerBar),
-          ])
-        }
-        onPreview={previewChord}
-      />
 
       <footer className="footer">
         音源はブラウザの Web Audio API で合成しています。MP3 のエンコードも端末内で行われ、
         音声データがどこかへ送信されることはありません。
       </footer>
+
+      {/* プリセットを掴んでいる間だけ出る、常に手の届くドロップ先 */}
+      {draggedPreset && (
+        <>
+          <div
+            ref={dropZoneRef}
+            className={`drop-zone${presetDrag.overTarget ? " over" : ""}`}
+            aria-hidden="true"
+          >
+            <strong>{draggedPreset.name}</strong>
+            <span>
+              {presetDrag.overTarget
+                ? "指を離すと進行の末尾に追加します"
+                : "ここに持ってきて指を離すと追加"}
+            </span>
+          </div>
+          <div className="drag-ghost" ref={presetDrag.ghostRef} aria-hidden="true">
+            {draggedPreset.name}
+          </div>
+        </>
+      )}
 
       {toast && (
         <div className="toast" role="status">
@@ -1048,6 +1105,11 @@ export default function App() {
         }
         onToggle={() => void handlePlay()}
         onExport={() => void doExport("mp3")}
+        canUndo={history.canUndo}
+        onUndo={() => {
+          history.undo();
+          setToast(null);
+        }}
       />
     </div>
   );
