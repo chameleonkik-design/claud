@@ -12,7 +12,7 @@ import {
   type Bitrate,
   type SaveOutcome,
 } from "./audio/export";
-import { isEmbedded } from "./audio/compat";
+import { isEmbedded, isIosDevice } from "./audio/compat";
 import { INSTRUMENTS } from "./audio/instruments";
 import { Player } from "./audio/player";
 import { ChordCard } from "./components/ChordCard";
@@ -229,12 +229,12 @@ export default function App() {
   const transportRef = useRef<HTMLElement>(null);
   const exportBusy = exportState.kind === "working";
   const embedded = isEmbedded();
-
-  /** 埋め込みから抜け出して、単独のタブでこのページを開く。 */
-  const openStandalone = () => {
-    // 進行を引き継げるよう、共有リンクと同じ形式で開く
-    window.open(shareUrl(song), "_blank", "noopener");
-  };
+  /**
+   * 保存が確実に失敗する組み合わせ。
+   * iOS で他ページに埋め込まれていると、共有シートもポップアップも塞がれる。
+   * 20秒かけて書き出したあとに失敗を知らせるのは無駄なので、先に伝える。
+   */
+  const cannotSaveHere = embedded && isIosDevice();
 
   const bars = totalBars(song);
   const seconds = arrangement.durationSeconds;
@@ -333,6 +333,15 @@ export default function App() {
           </div>
         )}
 
+        {cannotSaveHere && exportState.kind === "idle" && (
+          <p className="notice">
+            ⚠️ この表示は他のページに埋め込まれているため、
+            <strong>iPhone では音声ファイルを保存できません</strong>
+            （試聴は問題なくできます）。保存したいときは、このアプリを通常のWebページとして
+            開いてください。
+          </p>
+        )}
+
         {exportState.kind === "ready" && (
           <div className="save-ready">
             <div className="save-file">
@@ -366,19 +375,31 @@ export default function App() {
 
             {saveNote === "blocked" && (
               <div className="save-blocked">
-                <p>
-                  <strong>このページからは保存できませんでした。</strong>
-                  {embedded
-                    ? "埋め込み表示の中では、iPhone のファイル保存がブラウザ側で禁止されています。"
-                    : "iPhone のブラウザがこの保存方法を許可していません。"}
-                </p>
-                <p>
-                  下のボタンでこのページを<strong>単独のタブとして開き直す</strong>と、
-                  共有シートから「"ファイル"に保存」できるようになります。
-                </p>
-                <button className="btn primary small" onClick={openStandalone}>
-                  ↗ このページを新しいタブで開く
-                </button>
+                {embedded ? (
+                  <>
+                    <p>
+                      <strong>埋め込み表示のままでは音声ファイルを保存できません。</strong>
+                      他のページに埋め込まれた状態では、ブラウザが音声の保存経路を
+                      すべて塞いでいます。アプリ側の不具合ではなく、回避もできません。
+                    </p>
+                    <p>
+                      このアプリを<strong>通常のWebページとして開く</strong>と保存できます。
+                      書き出した音は消えていないので、開き直したあとに
+                      もう一度「MP3をダウンロード」を押してください。
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <p>
+                      <strong>このブラウザでは保存経路が塞がれていました。</strong>
+                      共有シートもポップアップも許可されていないようです。
+                    </p>
+                    <p>
+                      ブラウザの設定でポップアップのブロックを解除するか、
+                      別のブラウザでお試しください。
+                    </p>
+                  </>
+                )}
               </div>
             )}
           </div>

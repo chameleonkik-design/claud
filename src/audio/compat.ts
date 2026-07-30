@@ -25,6 +25,11 @@ export function isIosLike(nav: NavigatorLike): boolean {
   return /Macintosh|Mac OS X/.test(ua) && (nav.maxTouchPoints ?? 0) > 1;
 }
 
+/** この端末が iPhone / iPad か。 */
+export function isIosDevice(): boolean {
+  return typeof navigator !== "undefined" && isIosLike(navigator);
+}
+
 export type SaveStrategy = "share" | "download";
 
 /**
