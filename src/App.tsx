@@ -7,11 +7,14 @@ import {
   encodeWav,
   renderSong,
   safeFilename,
+  saveBlob,
+  saveNeedsUserTap,
   type Bitrate,
 } from "./audio/export";
 import { INSTRUMENTS } from "./audio/instruments";
 import { Player } from "./audio/player";
 import { ChordCard } from "./components/ChordCard";
+import { FloatingTransport } from "./components/FloatingTransport";
 import { Keyboard } from "./components/Keyboard";
 import { Palette } from "./components/Palette";
 import { pcName, prettyAccidentals } from "./music/notes";
@@ -32,6 +35,11 @@ import { loadSong, saveSong, shareUrl } from "./state";
 type ExportState =
   | { kind: "idle" }
   | { kind: "working"; ratio: number; phase: "render" | "encode"; format: string }
+  /**
+   * 書き出しは終わったが、保存はまだ。
+   * iOS では共有シートを開くのにユーザー操作が要るので、この状態でボタンを出す。
+   */
+  | { kind: "ready"; blob: Blob; filename: string; url: string; needsTap: boolean }
   | { kind: "error"; message: string };
 
 export default function App() {
@@ -135,8 +143,17 @@ export default function App() {
     void player().preview(song, probe[0].notes);
   };
 
+  /** 前回作ったファイルの blob URL を解放する。 */
+  const releaseExport = useCallback(() => {
+    setExportState((prev) => {
+      if (prev.kind === "ready") URL.revokeObjectURL(prev.url);
+      return { kind: "idle" };
+    });
+  }, []);
+
   const doExport = async (format: "mp3" | "wav") => {
     if (song.chords.length === 0) return;
+    releaseExport();
     playerRef.current?.stop();
     setPlaying(false);
     setExportState({ kind: "working", ratio: 0, phase: "render", format: format.toUpperCase() });
@@ -147,20 +164,47 @@ export default function App() {
       const name = safeFilename(
         `${pcName(song.tonic, useFlats)}_${song.chords.length}chords_${song.bpm}bpm`,
       );
+
+      let blob: Blob;
+      let filename: string;
       if (format === "wav") {
-        downloadBlob(encodeWav(buffer), `${name}.wav`);
+        blob = encodeWav(buffer);
+        filename = `${name}.wav`;
       } else {
-        const blob = await encodeMp3(buffer, bitrate, (ratio, phase) =>
+        blob = await encodeMp3(buffer, bitrate, (ratio, phase) =>
           setExportState({ kind: "working", ratio, phase, format: "MP3" }),
         );
-        downloadBlob(blob, `${name}.mp3`);
+        filename = `${name}.mp3`;
       }
-      setExportState({ kind: "idle" });
+
+      // iOS Safari は blob URL の `<a download>` を無視するので、共有シートに渡す。
+      // ただし共有シートはユーザー操作の直後しか開けず、ここまでの書き出しで
+      // その権利が切れているため、改めてタップしてもらう。
+      const needsTap = saveNeedsUserTap(filename, blob.type);
+      if (!needsTap) downloadBlob(blob, filename);
+
+      setExportState({
+        kind: "ready",
+        blob,
+        filename,
+        url: URL.createObjectURL(blob),
+        needsTap,
+      });
     } catch (err) {
       setExportState({
         kind: "error",
         message: `書き出しに失敗しました: ${describeError(err)}`,
       });
+    }
+  };
+
+  /** 「保存」ボタン。ユーザー操作の中から共有シートを開く。 */
+  const doSave = async () => {
+    if (exportState.kind !== "ready") return;
+    try {
+      await saveBlob(exportState.blob, exportState.filename);
+    } catch (err) {
+      setExportState({ kind: "error", message: `保存できませんでした: ${describeError(err)}` });
     }
   };
 
@@ -176,6 +220,8 @@ export default function App() {
     }
   };
 
+  const transportRef = useRef<HTMLElement>(null);
+  const exportBusy = exportState.kind === "working";
   const bars = totalBars(song);
   const seconds = arrangement.durationSeconds;
   const highlightNotes =
@@ -201,7 +247,7 @@ export default function App() {
       </header>
 
       {/* --- 再生・書き出し --- */}
-      <section className="panel">
+      <section className="panel" ref={transportRef}>
         <div className="transport">
           <button className="btn primary" onClick={handlePlay} disabled={song.chords.length === 0}>
             {playing ? "■ 停止" : "▶ 試聴"}
@@ -232,14 +278,14 @@ export default function App() {
           <button
             className="btn accent"
             onClick={() => void doExport("mp3")}
-            disabled={exportState.kind === "working" || song.chords.length === 0}
+            disabled={exportBusy || song.chords.length === 0}
           >
             ⬇ MP3をダウンロード
           </button>
           <button
             className="btn"
             onClick={() => void doExport("wav")}
-            disabled={exportState.kind === "working" || song.chords.length === 0}
+            disabled={exportBusy || song.chords.length === 0}
           >
             WAV
           </button>
@@ -270,6 +316,32 @@ export default function App() {
                 )}%`,
               }}
             />
+          </div>
+        )}
+
+        {exportState.kind === "ready" && (
+          <div className="save-ready">
+            <div className="save-file">
+              <span className="save-name">{exportState.filename}</span>
+              <span className="save-size">{formatBytes(exportState.blob.size)}</span>
+            </div>
+            <button className="btn accent" onClick={() => void doSave()}>
+              {exportState.needsTap ? "📥 ファイルに保存" : "もう一度保存"}
+            </button>
+            <a className="btn ghost small" href={exportState.url} download={exportState.filename}>
+              直接リンク
+            </a>
+            <button className="btn ghost small" onClick={releaseExport} aria-label="閉じる">
+              ✕
+            </button>
+            {exportState.needsTap && (
+              <p className="hint" style={{ flexBasis: "100%", margin: "4px 0 0" }}>
+                書き出しできました。「ファイルに保存」を押すと共有シートが開くので、
+                <strong>「"ファイル"に保存」</strong>
+                を選んでください。うまくいかないときは「直接リンク」を長押し →
+                「リンク先のファイルをダウンロード」でも保存できます。
+              </p>
+            )}
           </div>
         )}
 
@@ -590,8 +662,31 @@ export default function App() {
         音源はブラウザの Web Audio API で合成しています。MP3 のエンコードも端末内で行われ、
         音声データがどこかへ送信されることはありません。
       </footer>
+
+      <FloatingTransport
+        watch={transportRef}
+        playing={playing}
+        disabled={song.chords.length === 0}
+        exportBusy={exportBusy}
+        nowPlaying={
+          playing && activeChord !== null ? (resolved[activeChord]?.name ?? null) : null
+        }
+        position={
+          playing && activeChord !== null
+            ? { index: activeChord + 1, total: resolved.length }
+            : null
+        }
+        onToggle={() => void handlePlay()}
+        onExport={() => void doExport("mp3")}
+      />
     </div>
   );
+}
+
+function formatBytes(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;
+  return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
 }
 
 function formatDuration(seconds: number): string {

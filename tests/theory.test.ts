@@ -9,7 +9,13 @@ import {
 } from "../src/music/chords";
 import { midiName, midiToFreq, nameToPc, pcName, prettyAccidentals } from "../src/music/notes";
 import { PRESETS, presetToSlots } from "../src/music/presets";
-import { borrowedChords, diatonicChords, getScale, SCALES } from "../src/music/scales";
+import {
+  borrowedChords,
+  diatonicChords,
+  getScale,
+  useFlatsForDegree,
+  SCALES,
+} from "../src/music/scales";
 import { buildVoicing } from "../src/music/voicing";
 
 describe("音名とピッチクラス", () => {
@@ -243,5 +249,47 @@ describe("プリセット", () => {
     const blues = PRESETS.find((p) => p.id === "blues12");
     expect(blues).toBeDefined();
     expect(presetToSlots(blues!)).toHaveLength(12);
+  });
+});
+
+describe("ダイアトニック外のコードの音名表記", () => {
+  it("bIII / bVI / bVII は♭で書く（D♯ ではなく E♭）", () => {
+    // Cメジャーでの借用コード
+    expect(useFlatsForDegree(3, false)).toBe(true);
+    expect(useFlatsForDegree(8, false)).toBe(true);
+    expect(useFlatsForDegree(10, false)).toBe(true);
+    expect(useFlatsForDegree(1, false)).toBe(true);
+  });
+
+  it("#IV は♯で書く", () => {
+    expect(useFlatsForDegree(6, false)).toBe(false);
+    // ♭系のキーでも #IV は♯のまま
+    expect(useFlatsForDegree(6, true)).toBe(false);
+  });
+
+  it("臨時記号のない度数はキーの表記に従う", () => {
+    for (const offset of [0, 2, 4, 5, 7, 9, 11]) {
+      expect(useFlatsForDegree(offset, false)).toBe(false);
+      expect(useFlatsForDegree(offset, true)).toBe(true);
+    }
+  });
+
+  it("Cメジャーの借用コードが E♭ / A♭ / B♭ と表示される", () => {
+    const names = borrowedChords(getScale("major")).map((c) =>
+      chordName(c.offset, c.quality, useFlatsForDegree(c.offset, false)),
+    );
+    expect(names).toContain("Eb");
+    expect(names).toContain("Ab");
+    expect(names).toContain("Bb");
+    expect(names).toContain("Db7");
+    expect(names.some((n) => n.includes("D#"))).toBe(false);
+    expect(names.some((n) => n.includes("G#"))).toBe(false);
+    expect(names.some((n) => n.includes("A#"))).toBe(false);
+  });
+
+  it("Cマイナーのダイアトニックが E♭ / A♭ / B♭ になる", () => {
+    const chords = diatonicChords(getScale("minor"), false);
+    const names = chords.map((c) => chordName(c.offset, c.quality, useFlatsForDegree(c.offset, false)));
+    expect(names).toEqual(["Cm", "Ddim", "Eb", "Fm", "Gm", "Ab", "Bb"]);
   });
 });

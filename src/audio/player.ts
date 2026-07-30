@@ -6,6 +6,7 @@
  */
 
 import { buildArrangement, type Arrangement, type Song } from "../music/song";
+import { createAudioContext } from "./compat";
 import { getInstrument } from "./instruments";
 import { buildMasterChain, scheduleArrangement, type MasterChain } from "./render";
 
@@ -35,7 +36,7 @@ export class Player {
 
   private ensureContext(): AudioContext {
     if (!this.ctx) {
-      this.ctx = new AudioContext();
+      this.ctx = createAudioContext();
     }
     return this.ctx;
   }

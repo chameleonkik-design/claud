@@ -15,7 +15,13 @@ import {
   type DrumEvent,
   type NoteEvent,
 } from "./patterns";
-import { diatonicChords, getScale, romanFromNumeral } from "./scales";
+import {
+  DEGREE_LABEL,
+  diatonicChords,
+  getScale,
+  romanFromNumeral,
+  useFlatsForDegree,
+} from "./scales";
 import { buildVoicing } from "./voicing";
 
 /** 進行上の1コード。root はキーの主音からの半音数で持つ（=キー変更で自動移調）。 */
@@ -125,26 +131,12 @@ export function romanFor(song: Song, slot: ChordSlot): string {
   if (match) return match.roman;
 
   // ダイアトニック外: 主音からの度数を相対表記する。
-  const DEGREE_LABEL = [
-    "I",
-    "bII",
-    "II",
-    "bIII",
-    "III",
-    "IV",
-    "#IV",
-    "V",
-    "bVI",
-    "VI",
-    "bVII",
-    "VII",
-  ];
   return romanFromNumeral(DEGREE_LABEL[mod12(slot.offset)], slot.quality);
 }
 
 /** 1リピート分のコードを解析して、実音・表示名・ボイシングを確定させる。 */
 export function resolveChords(song: Song): ResolvedChord[] {
-  const useFlats = prefersFlats(song.tonic);
+  const keyUseFlats = prefersFlats(song.tonic);
   const out: ResolvedChord[] = [];
   let beat = 0;
   let prevNotes: number[] | undefined;
@@ -157,6 +149,9 @@ export function resolveChords(song: Song): ResolvedChord[] {
       inversion: slot.inversion,
     });
     prevNotes = voicing.notes;
+
+    // bIII を D♯ ではなく E♭ と書くため、表記は度数に合わせる
+    const useFlats = useFlatsForDegree(slot.offset, keyUseFlats);
 
     out.push({
       slot,

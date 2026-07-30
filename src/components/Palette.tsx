@@ -4,7 +4,13 @@
 
 import { prettyChordName } from "../music/chords";
 import { mod12, prettyAccidentals } from "../music/notes";
-import { borrowedChords, diatonicChords, getScale, type DerivedChord } from "../music/scales";
+import {
+  borrowedChords,
+  diatonicChords,
+  getScale,
+  useFlatsForDegree,
+  type DerivedChord,
+} from "../music/scales";
 import type { Song } from "../music/song";
 
 interface Props {
@@ -42,7 +48,13 @@ function Chips({
           }}
           title="クリックで進行に追加 / 右クリックで試聴"
         >
-          <span>{prettyChordName(mod12(tonic + c.offset), c.quality, useFlats)}</span>
+          <span>
+            {prettyChordName(
+              mod12(tonic + c.offset),
+              c.quality,
+              useFlatsForDegree(c.offset, useFlats),
+            )}
+          </span>
           <span className="deg">{prettyAccidentals(c.roman)}</span>
         </button>
       ))}

@@ -4,6 +4,7 @@
 
 import { QUALITIES } from "../music/chords";
 import { midiName, pcName, prettyAccidentals } from "../music/notes";
+import { useFlatsForDegree } from "../music/scales";
 import type { ResolvedChord } from "../music/song";
 
 interface Props {
@@ -59,11 +60,15 @@ export function ChordCard({
           onChange={(e) => onChange({ offset: Number(e.target.value) })}
           style={{ width: 58 }}
         >
-          {Array.from({ length: 12 }, (_, i) => (
-            <option key={i} value={i}>
-              {prettyAccidentals(pcName((chord.rootPc - slot.offset + i + 120) % 12, useFlats))}
-            </option>
-          ))}
+          {Array.from({ length: 12 }, (_, i) => {
+            // rootPc - offset がキーの主音。そこから i 半音上が候補のルート。
+            const tonic = (chord.rootPc - slot.offset + 120) % 12;
+            return (
+              <option key={i} value={i}>
+                {prettyAccidentals(pcName(tonic + i, useFlatsForDegree(i, useFlats)))}
+              </option>
+            );
+          })}
         </select>
 
         <select

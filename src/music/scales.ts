@@ -41,6 +41,38 @@ export function getScale(id: string): Scale {
 /** ローマ数字（大文字）。index は 0 始まり。 */
 const ROMAN = ["I", "II", "III", "IV", "V", "VI", "VII"];
 
+/**
+ * 主音からの半音数を度数表記にしたもの。ダイアトニック外のコードの表記に使う。
+ * 慣習どおり、bII / bIII / bVI / bVII は♭、#IV は♯で書く。
+ */
+export const DEGREE_LABEL = [
+  "I",
+  "bII",
+  "II",
+  "bIII",
+  "III",
+  "IV",
+  "#IV",
+  "V",
+  "bVI",
+  "VI",
+  "bVII",
+  "VII",
+];
+
+/**
+ * その度数のコードのルートを♭表記で書くべきか。
+ *
+ * 度数表記が♭を持つ音（bIII など）を D♯ ではなく E♭ と書くための判定。
+ * 度数に臨時記号が無ければキー本来の表記に従う。
+ */
+export function useFlatsForDegree(offset: number, keyUseFlats: boolean): boolean {
+  const label = DEGREE_LABEL[mod12(offset)];
+  if (label.startsWith("b")) return true;
+  if (label.startsWith("#")) return false;
+  return keyUseFlats;
+}
+
 export interface DerivedChord {
   /** 主音からの半音数（0..11）。 */
   offset: number;

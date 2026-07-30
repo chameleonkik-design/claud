@@ -11,6 +11,14 @@
 
 import { Mp3Encoder } from "@breezystack/lamejs";
 import { buildArrangement, type Song } from "../music/song";
+import {
+  createOfflineAudioContext,
+  isAbortError,
+  isIosLike,
+  needsManualSaveTap,
+  pickSaveStrategy,
+  type SaveStrategy,
+} from "./compat";
 import { buildMasterChain, scheduleArrangement, totalRenderSeconds } from "./render";
 
 /** MP3 の 1 フレーム分のサンプル数。 */
@@ -30,7 +38,7 @@ export async function renderSong(song: Song, onProgress?: ProgressFn): Promise<A
   const frames = Math.max(1, Math.ceil(seconds * SAMPLE_RATE));
 
   onProgress?.(0, "render");
-  const ctx = new OfflineAudioContext(2, frames, SAMPLE_RATE);
+  const ctx = createOfflineAudioContext(2, frames, SAMPLE_RATE);
   const chain = buildMasterChain(ctx, ctx.destination, song);
   scheduleArrangement(ctx, chain, song, arr, 0);
   const buffer = await ctx.startRendering();
@@ -134,7 +142,7 @@ export function encodeWav(buffer: AudioBuffer): Blob {
   return new Blob([out], { type: "audio/wav" });
 }
 
-/** ブラウザにファイルを保存させる。 */
+/** ブラウザにファイルを保存させる（通常のダウンロード）。 */
 export function downloadBlob(blob: Blob, filename: string): void {
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
@@ -145,6 +153,63 @@ export function downloadBlob(blob: Blob, filename: string): void {
   a.remove();
   // すぐ revoke するとダウンロードが始まらないブラウザがあるので少し待つ
   window.setTimeout(() => URL.revokeObjectURL(url), 10_000);
+}
+
+/** この端末でファイルを共有シートに渡せるか。 */
+export function canShareFiles(filename: string, type: string): boolean {
+  if (typeof navigator === "undefined") return false;
+  if (typeof navigator.share !== "function" || typeof navigator.canShare !== "function") {
+    return false;
+  }
+  try {
+    const probe = new File([new Uint8Array([0])], filename, { type });
+    return navigator.canShare({ files: [probe] });
+  } catch {
+    return false;
+  }
+}
+
+/** この端末で使う保存方法。 */
+export function saveStrategyFor(filename: string, type: string): SaveStrategy {
+  return pickSaveStrategy({
+    ios: typeof navigator !== "undefined" && isIosLike(navigator),
+    canShareFiles: canShareFiles(filename, type),
+  });
+}
+
+/**
+ * 書き出しが終わったあと、保存に改めてタップが必要か。
+ *
+ * iOS では共有シートを使うため、書き出し完了後にユーザーの操作が要る。
+ */
+export function saveNeedsUserTap(filename: string, type: string): boolean {
+  return needsManualSaveTap(saveStrategyFor(filename, type));
+}
+
+export type SaveOutcome = "shared" | "downloaded" | "cancelled";
+
+/**
+ * ファイルを保存する。
+ *
+ * iOS Safari は blob URL に対する `<a download>` を無視するので、共有シートに
+ * File を渡して「"ファイル"に保存」してもらう。必ずユーザー操作の中から呼ぶこと。
+ */
+export async function saveBlob(blob: Blob, filename: string): Promise<SaveOutcome> {
+  if (saveStrategyFor(filename, blob.type) === "share") {
+    try {
+      await navigator.share({
+        files: [new File([blob], filename, { type: blob.type })],
+        title: filename,
+      });
+      return "shared";
+    } catch (err) {
+      // ユーザーが閉じただけならエラー扱いしない
+      if (isAbortError(err)) return "cancelled";
+      // 共有できなかった場合は通常のダウンロードへ落とす
+    }
+  }
+  downloadBlob(blob, filename);
+  return "downloaded";
 }
 
 /** ファイル名に使えない文字を落とす。 */
