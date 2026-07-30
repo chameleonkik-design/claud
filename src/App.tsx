@@ -45,7 +45,17 @@ type ExportState =
    * 書き出しは終わったが、保存はまだ。
    * iOS では共有シートを開くのにユーザー操作が要るので、この状態でボタンを出す。
    */
-  | { kind: "ready"; blob: Blob; filename: string; url: string; needsTap: boolean }
+  | {
+      kind: "ready";
+      blob: Blob;
+      filename: string;
+      url: string;
+      needsTap: boolean;
+      /** 実際に入っていたコーデック（録音経路のときだけ分かる）。 */
+      codec?: string | null;
+      /** AAC入りMP4なら、拡張子を .m4a に変えるだけで m4a として通用する。 */
+      isAacMp4?: boolean;
+    }
   | { kind: "error"; message: string };
 
 export default function App() {
@@ -239,7 +249,7 @@ export default function App() {
         setExportState({ kind: "working", ratio, phase, format: fmt.extension.toUpperCase() }),
       );
 
-      const { blob, format } = await recordBuffer(ctx, buffer, (ratio) =>
+      const { blob, format, codec, isAacMp4 } = await recordBuffer(ctx, buffer, (ratio) =>
         setExportState({
           kind: "working",
           ratio,
@@ -258,6 +268,8 @@ export default function App() {
         filename,
         url: URL.createObjectURL(blob),
         needsTap: true,
+        codec,
+        isAacMp4,
       });
       // 録音の直後はまだ操作の権利が残っているので、そのまま保存を試す
       setSaveNote(await saveViaArtifact(blob, filename));
@@ -441,9 +453,9 @@ export default function App() {
         {artifactSave && exportState.kind === "idle" && (
           <p className="notice">
             この表示では <strong>{recorderFormat?.label ?? "音声"}</strong>{" "}
-            として保存します（埋め込み表示では MP3 を渡せないため）。iPhone の「ファイル」
-            アプリでそのまま再生できます。作成中は曲の長さぶん待ち時間があるので、
-            画面を開いたままにしてください。
+            として保存します（埋め込み表示では MP3 を渡せないため）。Suno などへの
+            アップロードにも使えます（弾かれる場合は拡張子を .m4a に変更）。作成中は
+            曲の長さぶん待ち時間があるので、画面を開いたままにしてください。
           </p>
         )}
 
@@ -467,9 +479,29 @@ export default function App() {
             </button>
 
             {artifactSave && saveNote === "downloaded" && (
-              <p className="hint" style={{ flexBasis: "100%", margin: "4px 0 0" }}>
-                ✅ 保存しました。iPhone なら「ファイル」アプリのダウンロードフォルダに入っています。
-              </p>
+              <div className="hint" style={{ flexBasis: "100%", margin: "4px 0 0" }}>
+                <p style={{ margin: 0 }}>
+                  ✅ 保存しました。iPhone なら「ファイル」アプリのダウンロードフォルダに入っています。
+                </p>
+                {exportState.isAacMp4 && (
+                  <p style={{ margin: "6px 0 0" }}>
+                    中身は <strong>AAC 音声</strong>です。Suno
+                    などにアップロードして弾かれる場合は、
+                    <strong>拡張子を .mp4 → .m4a に変えてください</strong>
+                    （ファイルを長押し →「名前の変更」）。同じデータなので
+                    作り直しも音質の劣化もありません。
+                  </p>
+                )}
+
+                {exportState.codec && !exportState.isAacMp4 && (
+                  <p style={{ margin: "6px 0 0" }}>
+                    中身は <strong>{exportState.codec}</strong> です。
+                    このブラウザは AAC で書き出せないため、mp3 / wav / m4a
+                    しか受け付けないサービスには、そのままでは渡せないかもしれません
+                    （拡張子を変えても中身は変わりません）。その場合は下の案内をご覧ください。
+                  </p>
+                )}
+              </div>
             )}
 
             {artifactSave && saveNote === "cancelled" && (

@@ -29,8 +29,11 @@ export interface RecorderFormat {
  * ミュージックアプリがそのまま再生できるため。
  */
 const CANDIDATES: RecorderFormat[] = [
-  { mime: 'audio/mp4;codecs="mp4a.40.2"', extension: "mp4", label: "MP4（AAC）" },
-  { mime: "audio/mp4", extension: "mp4", label: "MP4（AAC）" },
+  // AAC を明示的に要求する。Safari はこれを受け付ける。
+  { mime: 'audio/mp4;codecs="mp4a.40.2"', extension: "mp4", label: "MP4" },
+  // 指定なしの MP4。ブラウザ任せなので中身は AAC とは限らない
+  // （Chromium は Opus を入れてくる）。実際のコーデックは録音後に判定する。
+  { mime: "audio/mp4", extension: "mp4", label: "MP4" },
   { mime: "audio/webm;codecs=opus", extension: "webm", label: "WebM（Opus）" },
   { mime: "audio/webm", extension: "webm", label: "WebM" },
 ];
@@ -51,6 +54,74 @@ export function pickRecorderFormat(): RecorderFormat | null {
 export interface RecordResult {
   blob: Blob;
   format: RecorderFormat;
+  /** 実際に入っていたコーデック名（"AAC" / "Opus" など）。判定できなければ null。 */
+  codec: string | null;
+  /**
+   * AAC 入りの MP4 か。
+   * これが true なら中身は .m4a と同一なので、拡張子を変えるだけで
+   * m4a を要求するサービス（Suno など）に渡せる。
+   */
+  isAacMp4: boolean;
+}
+
+/** MP4 のサンプルエントリ（コーデック）の FourCC を読み出す。 */
+function readMp4SampleEntry(bytes: Uint8Array): string | null {
+  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  const fourcc = (at: number) =>
+    String.fromCharCode(bytes[at], bytes[at + 1], bytes[at + 2], bytes[at + 3]);
+
+  // 中を辿る必要があるコンテナボックス
+  const containers = new Set(["moov", "trak", "mdia", "minf", "stbl"]);
+
+  const scan = (start: number, end: number): string | null => {
+    let off = start;
+    while (off + 8 <= end) {
+      const size = view.getUint32(off);
+      const type = fourcc(off + 4);
+      const boxEnd = size === 0 ? end : off + size;
+      if (size < 8 || boxEnd > end) return null;
+
+      if (type === "stsd") {
+        // version/flags(4) + entry_count(4) を飛ばすとサンプルエントリ
+        const entry = off + 16;
+        if (entry + 8 <= boxEnd) return fourcc(entry + 4);
+        return null;
+      }
+      if (containers.has(type)) {
+        const hit = scan(off + 8, boxEnd);
+        if (hit) return hit;
+      }
+      off = boxEnd;
+    }
+    return null;
+  };
+
+  return scan(0, bytes.byteLength);
+}
+
+/**
+ * 出来上がったファイルに実際に入っているコーデックを調べる。
+ *
+ * MediaRecorder に "audio/mp4" を頼んでも、ブラウザが AAC を入れるとは限らない
+ * （Chromium は Opus を入れる）。推測で「AACです」と言わないために実物を見る。
+ */
+async function inspectCodec(
+  blob: Blob,
+  format: RecorderFormat,
+): Promise<{ codec: string | null; isAacMp4: boolean }> {
+  if (format.extension !== "mp4") {
+    return { codec: format.mime.includes("opus") ? "Opus" : null, isAacMp4: false };
+  }
+  try {
+    // fragmented MP4 は moov が先頭付近にあるので、冒頭だけ読めば足りる
+    const head = new Uint8Array(await blob.slice(0, 64 * 1024).arrayBuffer());
+    const entry = readMp4SampleEntry(head);
+    if (entry === "mp4a") return { codec: "AAC", isAacMp4: true };
+    if (entry === "Opus" || entry === "opus") return { codec: "Opus", isAacMp4: false };
+    return { codec: entry, isAacMp4: false };
+  } catch {
+    return { codec: null, isAacMp4: false };
+  }
 }
 
 /**
@@ -118,5 +189,7 @@ export async function recordBuffer(
   onProgress?.(1);
   source.disconnect();
 
-  return { blob: new Blob(chunks, { type: format.mime }), format };
+  const blob = new Blob(chunks, { type: format.mime });
+  const { codec, isAacMp4 } = await inspectCodec(blob, format);
+  return { blob, format, codec, isAacMp4 };
 }
