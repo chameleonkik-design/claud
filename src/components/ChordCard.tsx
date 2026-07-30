@@ -14,6 +14,12 @@ interface Props {
   total: number;
   active: boolean;
   useFlats: boolean;
+  /** 長押しドラッグで掴まれている最中か。 */
+  dragging?: boolean;
+  /** 並べ替えのためのハンドラ（長押し検出）。 */
+  dragHandlers?: { onPointerDown: (e: React.PointerEvent) => void };
+  /** 並べ替えの当たり判定に使うので、DOM を親に渡す。 */
+  registerElement?: (el: HTMLDivElement | null) => void;
   onChange: (patch: { offset?: number; quality?: string; beats?: number; inversion?: number }) => void;
   onMove: (delta: number) => void;
   onRemove: () => void;
@@ -27,6 +33,9 @@ export function ChordCard({
   total,
   active,
   useFlats,
+  dragging = false,
+  dragHandlers,
+  registerElement,
   onChange,
   onMove,
   onRemove,
@@ -37,7 +46,11 @@ export function ChordCard({
   const noteNames = chord.notes.map((n) => midiName(n, useFlats)).join(" ");
 
   return (
-    <div className={`chord-card${active ? " active" : ""}`}>
+    <div
+      ref={registerElement}
+      className={`chord-card${active ? " active" : ""}${dragging ? " dragging" : ""}`}
+      {...dragHandlers}
+    >
       <div className="top">
         <button
           className="name"
@@ -135,8 +148,8 @@ export function ChordCard({
         <button
           className="btn icon"
           onClick={onDuplicate}
-          title="複製"
-          aria-label={`${index + 1}番目のコードを複製`}
+          title="このコードを末尾にコピー"
+          aria-label={`${index + 1}番目のコードを末尾にコピー`}
         >
           ⧉
         </button>

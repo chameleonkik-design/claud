@@ -12,6 +12,10 @@ import { makeSlot, type ChordSlot, type Song } from "./music/song";
 import { INSTRUMENTS } from "./audio/instruments";
 
 const STORAGE_KEY = "chord-studio:song:v1";
+/** 名前を付けて保存した進行の置き場。 */
+const SAVED_KEY = "chord-studio:saved:v1";
+/** 保存できる件数の上限。 */
+const SAVED_LIMIT = 50;
 
 export const DEFAULT_SONG: Song = {
   tonic: 0,
@@ -152,4 +156,96 @@ export function saveSong(song: Song): void {
   } catch {
     /* 保存できなくても動作は続ける */
   }
+}
+
+// --- 名前を付けて保存した進行（マイ進行） ---
+
+export interface SavedSong {
+  id: string;
+  name: string;
+  /** 保存した時刻（エポックミリ秒）。 */
+  savedAt: number;
+  song: Song;
+}
+
+/** 保存名を安全な長さに整える。 */
+function cleanName(name: string): string {
+  return name.trim().replace(/\s+/g, " ").slice(0, 40);
+}
+
+function readSaved(): SavedSong[] {
+  try {
+    const raw = localStorage.getItem(SAVED_KEY);
+    if (!raw) return [];
+    const parsed: unknown = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed
+      .map((entry): SavedSong | null => {
+        const e = (entry ?? {}) as Record<string, unknown>;
+        if (typeof e.id !== "string") return null;
+        return {
+          id: e.id,
+          name: cleanName(typeof e.name === "string" ? e.name : "") || "無題",
+          savedAt: typeof e.savedAt === "number" ? e.savedAt : 0,
+          // 保存データも外部入力と同じく検証してから使う
+          song: normalizeSong(e.song),
+        };
+      })
+      .filter((e): e is SavedSong => e !== null)
+      .slice(0, SAVED_LIMIT);
+  } catch {
+    return [];
+  }
+}
+
+function writeSaved(list: SavedSong[]): SavedSong[] {
+  const trimmed = list.slice(0, SAVED_LIMIT);
+  try {
+    localStorage.setItem(
+      SAVED_KEY,
+      JSON.stringify(
+        trimmed.map((e) => ({ id: e.id, name: e.name, savedAt: e.savedAt, song: toPlain(e.song) })),
+      ),
+    );
+  } catch {
+    /* 容量超過などで保存できなくても、画面の一覧は更新しておく */
+  }
+  return trimmed;
+}
+
+export function listSavedSongs(): SavedSong[] {
+  // 新しい順に並べる
+  return readSaved().sort((a, b) => b.savedAt - a.savedAt);
+}
+
+/**
+ * 進行に名前を付けて保存する。
+ * 同じ名前が既にあれば上書きする（意図せず同名が増えるのを防ぐ）。
+ */
+export function saveNamedSong(name: string, song: Song): SavedSong[] {
+  const clean = cleanName(name) || "無題";
+  const list = readSaved();
+  const entry: SavedSong = {
+    id: `s${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`,
+    name: clean,
+    savedAt: Date.now(),
+    song: normalizeSong(song),
+  };
+  const existing = list.findIndex((e) => e.name === clean);
+  if (existing >= 0) {
+    list[existing] = { ...entry, id: list[existing].id };
+  } else {
+    list.unshift(entry);
+  }
+  return writeSaved(list).sort((a, b) => b.savedAt - a.savedAt);
+}
+
+export function deleteSavedSong(id: string): SavedSong[] {
+  return writeSaved(readSaved().filter((e) => e.id !== id)).sort((a, b) => b.savedAt - a.savedAt);
+}
+
+/** 保存名の初期候補。キーとコード数から作る。 */
+export function suggestSongName(song: Song, chordNames: string[]): string {
+  const head = chordNames.slice(0, 4).join("–");
+  return head || `${song.bpm}BPM の進行`;
 }

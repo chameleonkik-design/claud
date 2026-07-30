@@ -274,6 +274,28 @@ button:focus-visible {
   transition: border-color 0.12s, box-shadow 0.15s, transform 0.12s;
 }
 
+/* 長押ししたときに iOS の選択メニューや虫めがねが出ないようにする */
+.chord-card {
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+/* 入力欄の中では選択できないと困る */
+.chord-card input {
+  -webkit-user-select: text;
+  user-select: text;
+}
+
+.chord-card.dragging {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent), 0 14px 30px -8px rgba(0, 0, 0, 0.7);
+  transform: scale(1.04);
+  opacity: 0.92;
+  z-index: 10;
+  cursor: grabbing;
+}
+
 .chord-card.active {
   border-color: var(--accent-2);
   box-shadow: 0 0 0 1px var(--accent-2), 0 6px 22px -8px rgba(56, 209, 182, 0.55);
@@ -649,6 +671,84 @@ button:focus-visible {
 .chord-card .number-field .step {
   min-width: 26px;
   font-size: 13px;
+}
+
+/* --- マイ進行 --- */
+
+.save-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.save-name-input {
+  flex: 1;
+  min-width: 160px;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 8px 10px;
+}
+
+.save-name-input:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.saved-list {
+  list-style: none;
+  margin: 14px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.saved-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 8px 10px;
+}
+
+.saved-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  background: none;
+  border: none;
+  padding: 0;
+  text-align: left;
+}
+
+.saved-name {
+  font-size: 14px;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.saved-chords {
+  font-size: 12px;
+  color: var(--text-dim);
+  overflow-wrap: anywhere;
+}
+
+.saved-meta {
+  font-size: 11px;
+  color: var(--text-faint);
+  font-variant-numeric: tabular-nums;
+}
+
+.saved-confirm {
+  display: inline-flex;
+  gap: 4px;
+  flex-wrap: wrap;
 }
 
 /* --- 元に戻す / やり直す --- */

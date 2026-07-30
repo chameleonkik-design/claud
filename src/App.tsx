@@ -38,7 +38,18 @@ import {
   type ChordSlot,
   type Song,
 } from "./music/song";
-import { loadSong, saveSong, shareUrl } from "./state";
+import {
+  deleteSavedSong,
+  listSavedSongs,
+  loadSong,
+  saveNamedSong,
+  saveSong,
+  shareUrl,
+  suggestSongName,
+  type SavedSong,
+} from "./state";
+import { SavedSongs, summarize } from "./components/SavedSongs";
+import { useDragReorder } from "./useDragReorder";
 
 type ExportState =
   | { kind: "idle" }
@@ -69,6 +80,8 @@ export default function App() {
   const [loop, setLoop] = useState(true);
   /** 画面下に短時間出す通知（プリセット読み込みの取り消し用）。 */
   const [toast, setToast] = useState<string | null>(null);
+  /** 名前を付けて保存した進行の一覧。 */
+  const [saved, setSaved] = useState<SavedSong[]>(() => listSavedSongs());
   const [playing, setPlaying] = useState(false);
   const [activeChord, setActiveChord] = useState<number | null>(null);
   const [exportState, setExportState] = useState<ExportState>({ kind: "idle" });
@@ -346,6 +359,27 @@ export default function App() {
       location.hash = new URL(url).hash;
     }
   };
+
+  // --- 長押しドラッグでの並べ替え ---
+  const cardRefs = useRef(new Map<string, HTMLDivElement>());
+  const drag = useDragReorder({
+    ids: song.chords.map((c) => c.id),
+    getElement: (id) => cardRefs.current.get(id) ?? null,
+    onCommit: (nextIds) =>
+      updateChords((chords) => {
+        const byId = new Map(chords.map((c) => [c.id, c]));
+        return nextIds.map((id) => byId.get(id)).filter((c): c is ChordSlot => c !== undefined);
+      }, "reorder"),
+  });
+
+  /** 画面に並べる順序。ドラッグ中だけ仮の順序を使う。 */
+  const displayedChords = useMemo(() => {
+    if (!drag.order) return resolved;
+    const byId = new Map(resolved.map((c) => [c.slot.id, c]));
+    return drag.order
+      .map((id) => byId.get(id))
+      .filter((c): c is (typeof resolved)[number] => c !== undefined);
+  }, [drag.order, resolved]);
 
   const transportRef = useRef<HTMLElement>(null);
   const exportBusy = exportState.kind === "working";
@@ -825,14 +859,20 @@ export default function App() {
       <section className="panel">
         <h2>コード進行</h2>
         <div className="timeline">
-          {resolved.map((c, i) => (
+          {displayedChords.map((c, i) => (
             <ChordCard
               key={c.slot.id}
               chord={c}
               index={i}
-              total={resolved.length}
-              active={playing && activeChord === i}
+              total={displayedChords.length}
+              active={playing && !drag.draggingId && resolved[activeChord ?? -1]?.slot.id === c.slot.id}
               useFlats={useFlats}
+              dragging={drag.draggingId === c.slot.id}
+              dragHandlers={drag.handlers(c.slot.id)}
+              registerElement={(el) => {
+                if (el) cardRefs.current.set(c.slot.id, el);
+                else cardRefs.current.delete(c.slot.id);
+              }}
               onPreview={() => void player().preview(song, c.notes)}
               onChange={(patch) =>
                 updateChords((chords) =>
@@ -861,12 +901,11 @@ export default function App() {
               }
               onDuplicate={() =>
                 updateChords((chords) => {
-                  const at = chords.findIndex((s) => s.id === c.slot.id);
-                  if (at < 0) return chords;
+                  // 進行を組み立てている末尾に足したいので、隣ではなく最後に置く
                   const copy = makeSlot(c.slot.offset, c.slot.quality, c.slot.beats);
                   if (c.slot.inversion) copy.inversion = c.slot.inversion;
-                  return [...chords.slice(0, at + 1), copy, ...chords.slice(at + 1)];
-                })
+                  return [...chords, copy];
+                }, "copy")
               }
               onRemove={() => updateChords((chords) => chords.filter((s) => s.id !== c.slot.id))}
             />
@@ -891,7 +930,10 @@ export default function App() {
               <Keyboard highlight={highlightNotes} rootPc={highlightRoot} />
             </div>
             <p className="hint">
-              コード名をクリックするとその和音だけ鳴ります。「拍数」で長さ、「転回」で分数コードにできます。
+              コード名をタップするとその和音だけ鳴ります。「拍数」で長さ、「転回」で分数コードに。
+              <br />
+              <strong>カードを長押しするとドラッグで並べ替え</strong>できます。⧉
+              は末尾にコピー、←→ でも移動できます。
             </p>
           </>
         )}
@@ -902,6 +944,26 @@ export default function App() {
           </p>
         )}
       </section>
+
+      {/* --- マイ進行 --- */}
+      <SavedSongs
+        saved={saved}
+        suggestedName={suggestSongName(
+          song,
+          resolved.map((c) => c.name),
+        )}
+        currentSummary={summarize(resolved.map((c) => c.name))}
+        summaryOf={(entry) => summarize(resolveChords(entry.song).map((c) => c.name))}
+        onSave={(name) => {
+          setSaved(saveNamedSong(name, song));
+          setToast(`「${name}」を保存しました`);
+        }}
+        onLoad={(entry) => {
+          setSong(entry.song, `saved:${entry.id}`);
+          setToast(`「${entry.name}」を読み込みました`);
+        }}
+        onDelete={(entry) => setSaved(deleteSavedSong(entry.id))}
+      />
 
       {/* --- プリセット --- */}
       <section className="panel">
