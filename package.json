@@ -14,8 +14,9 @@
   },
   "repository": {
     "type": "git",
-    "url": "http://local_proxy@127.0.0.1:41729/git/chameleonkik-design/claud"
+    "url": "git+https://github.com/chameleonkik-design/claud.git"
   },
+  "homepage": "https://chameleonkik-design.github.io/claud/",
   "license": "ISC",
   "dependencies": {
     "@breezystack/lamejs": "^1.2.7",
