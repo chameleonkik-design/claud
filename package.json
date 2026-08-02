@@ -14,9 +14,9 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/chameleonkik-design/claud.git"
+    "url": "git+https://github.com/dopagakiorchestra/claud.git"
   },
-  "homepage": "https://chameleonkik-design.github.io/claud/",
+  "homepage": "https://dopagakiorchestra.github.io/claud/",
   "license": "ISC",
   "dependencies": {
     "@breezystack/lamejs": "^1.2.7",
