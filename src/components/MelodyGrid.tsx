@@ -25,6 +25,8 @@ interface Props {
   onToggle: (stepIndex: number, offset: number) => void;
   /** 行の音名をタップしたときに、その高さを鳴らす。 */
   onPreviewRow: (offset: number) => void;
+  /** 目盛りをタップしたとき、その拍から再生する。 */
+  onSeek: (beat: number) => void;
 }
 
 export function MelodyGrid({
@@ -36,6 +38,7 @@ export function MelodyGrid({
   playingStep,
   onToggle,
   onPreviewRow,
+  onSeek,
 }: Props) {
   const gridRef = useRef<HTMLDivElement>(null);
 
@@ -68,6 +71,33 @@ export function MelodyGrid({
     <div className="roll-wrap">
       <div className="roll-scroll">
         <div className="roll" ref={gridRef} onClick={handleClick}>
+          {/* 目盛り。タップした位置から再生できるので、長い曲でも頭から聴き直さずに済む。 */}
+          <div className="roll-row roll-ruler">
+            <div className="roll-label ruler-label" aria-hidden="true">
+              ▶
+            </div>
+            <div className="roll-cells">
+              {steps.map((_, i) => (
+                <button
+                  key={i}
+                  type="button"
+                  className={[
+                    "roll-tick",
+                    i % stepsPerBar === 0 ? "bar" : "",
+                    i % stepsPerBeat === 0 ? "beat" : "",
+                    playingStep === i ? "playing" : "",
+                  ]
+                    .filter(Boolean)
+                    .join(" ")}
+                  onClick={() => onSeek(i / stepsPerBeat)}
+                  title={`${Math.floor(i / stepsPerBar) + 1}小節目から再生`}
+                >
+                  {i % stepsPerBar === 0 ? Math.floor(i / stepsPerBar) + 1 : ""}
+                </button>
+              ))}
+            </div>
+          </div>
+
           {rows.map((row) => (
             <div key={row.offset} className="roll-row">
               <button
@@ -110,6 +140,7 @@ export function MelodyGrid({
         <strong>同じ高さを隣に続けて置くと1つの長い音</strong>になります。
         <span className="legend-swatch chord-tone" /> は今のコードに含まれる音（合いやすい音）、
         左の音名をタップするとその高さを鳴らせます。
+        <strong>上の目盛りをタップすると、そこから再生</strong>できます。
       </p>
     </div>
   );

@@ -41,7 +41,7 @@ export const DEFAULT_SONG: Song = {
   melodyEnabled: false,
   melody: [],
   melodyStepsPerBeat: 2,
-  melodyInstrument: "musicbox",
+  melodyInstrument: "epiano",
   melodyOctave: 0,
   melodyVolume: 0.9,
 };

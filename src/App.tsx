@@ -206,6 +206,24 @@ export default function App() {
     }
   };
 
+  /** 指定した拍から再生し直す。長い曲を頭から聴き直さずに確認できる。 */
+  const seekTo = useCallback(
+    (beat: number) => {
+      if (song.chords.length === 0) return;
+      const p = player();
+      setPlaying(true);
+      lastPlayedRef.current = { song, loop };
+      p.play(song, loop, beat).catch((err: unknown) => {
+        setPlaying(false);
+        setExportState({
+          kind: "error",
+          message: `再生を開始できませんでした: ${describeError(err)}`,
+        });
+      });
+    },
+    [song, loop],
+  );
+
   // 再生中に設定を変えたら、その場で組み直して変更を聴けるようにする。
   // 再生開始直後の二重再生を避けるため、最後に再生した設定と一致していたら何もしない。
   useEffect(() => {
@@ -216,7 +234,9 @@ export default function App() {
     if (last && last.song === song && last.loop === loop) return;
     const t = window.setTimeout(() => {
       lastPlayedRef.current = { song, loop };
-      void p.play(song, loop);
+      // 頭に戻さず、いま鳴っているところから鳴らし直す。
+      // 途中を編集しているときに毎回冒頭へ飛ばされると確認しづらい。
+      void p.play(song, loop, p.position()?.beat ?? 0);
     }, 220);
     return () => window.clearTimeout(t);
   }, [song, loop, playing]);
@@ -1158,6 +1178,7 @@ export default function App() {
           playingStep={playingStep}
           onToggle={toggleMelodyStep}
           onPreviewRow={previewMelodyRow}
+          onSeek={seekTo}
         />
       </section>
 
