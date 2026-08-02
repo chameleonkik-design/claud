@@ -38,6 +38,12 @@ export const DEFAULT_SONG: Song = {
   reverb: 0.35,
   volume: 0.85,
   tail: true,
+  melodyEnabled: false,
+  melody: [],
+  melodyStepsPerBeat: 2,
+  melodyInstrument: "musicbox",
+  melodyOctave: 0,
+  melodyVolume: 0.9,
 };
 
 function clamp(n: unknown, min: number, max: number, fallback: number): number {
@@ -85,7 +91,32 @@ export function normalizeSong(raw: unknown): Song {
     reverb: clamp(o.reverb, 0, 1, DEFAULT_SONG.reverb),
     volume: clamp(o.volume, 0, 1, DEFAULT_SONG.volume),
     tail: typeof o.tail === "boolean" ? o.tail : DEFAULT_SONG.tail,
+
+    melodyEnabled:
+      typeof o.melodyEnabled === "boolean" ? o.melodyEnabled : DEFAULT_SONG.melodyEnabled,
+    melody: normalizeMelody(o.melody),
+    melodyStepsPerBeat: [1, 2, 3, 4].includes(Number(o.melodyStepsPerBeat))
+      ? Number(o.melodyStepsPerBeat)
+      : DEFAULT_SONG.melodyStepsPerBeat,
+    melodyInstrument: pickId(
+      o.melodyInstrument,
+      INSTRUMENTS.map((i) => i.id),
+      DEFAULT_SONG.melodyInstrument,
+    ),
+    melodyOctave: Math.round(clamp(o.melodyOctave, -2, 2, DEFAULT_SONG.melodyOctave)),
+    melodyVolume: clamp(o.melodyVolume, 0, 1, DEFAULT_SONG.melodyVolume),
   };
+}
+
+/** メロディのステップ配列を安全な値に整える。 */
+function normalizeMelody(raw: unknown): Array<number | null> {
+  if (!Array.isArray(raw)) return [];
+  // 音の高さは主音からの半音数。行の範囲（0〜2オクターブ）を大きく外れる値は捨てる。
+  return raw.slice(0, 4096).map((v) => {
+    if (typeof v !== "number" || !Number.isFinite(v)) return null;
+    const n = Math.round(v);
+    return n >= -24 && n <= 48 ? n : null;
+  });
 }
 
 /** URL に載せるための最小限のオブジェクト（id は復元時に振り直す）。 */

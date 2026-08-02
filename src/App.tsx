@@ -24,7 +24,15 @@ import { ChordCard } from "./components/ChordCard";
 import { FloatingTransport } from "./components/FloatingTransport";
 import { Keyboard } from "./components/Keyboard";
 import { NumberField } from "./components/NumberField";
+import { MelodyGrid } from "./components/MelodyGrid";
 import { Palette } from "./components/Palette";
+import {
+  fitSteps,
+  hasMelody,
+  melodyMidi,
+  pitchRowsFor,
+  stepCount,
+} from "./music/melody";
 import { pcName, prettyAccidentals } from "./music/notes";
 import { BASS_PATTERNS, CHORD_PATTERNS, DRUM_PATTERNS } from "./music/patterns";
 import { PRESETS, presetToSlots } from "./music/presets";
@@ -86,6 +94,8 @@ export default function App() {
   const [saved, setSaved] = useState<SavedSong[]>(() => listSavedSongs());
   const [playing, setPlaying] = useState(false);
   const [activeChord, setActiveChord] = useState<number | null>(null);
+  /** 再生中の拍位置（ループ内）。メロディの再生位置表示に使う。 */
+  const [playPosition, setPlayPosition] = useState<number | null>(null);
   const [exportState, setExportState] = useState<ExportState>({ kind: "idle" });
   const [bitrate, setBitrate] = useState<Bitrate>(192);
   const [copied, setCopied] = useState(false);
@@ -101,6 +111,7 @@ export default function App() {
       p.onEnded = () => {
         setPlaying(false);
         setActiveChord(null);
+        setPlayPosition(null);
       };
       playerRef.current = p;
     }
@@ -124,6 +135,7 @@ export default function App() {
     const tick = () => {
       const pos = playerRef.current?.position();
       setActiveChord(pos ? pos.chordIndex : null);
+      setPlayPosition(pos ? pos.beat : null);
       raf = requestAnimationFrame(tick);
     };
     raf = requestAnimationFrame(tick);
@@ -177,6 +189,7 @@ export default function App() {
       p.stop();
       setPlaying(false);
       setActiveChord(null);
+      setPlayPosition(null);
       return;
     }
     if (song.chords.length === 0) return;
@@ -411,6 +424,80 @@ export default function App() {
   });
 
   const draggedPreset = PRESETS.find((p) => p.id === presetDrag.activeId) ?? null;
+
+  // --- メロディ ---
+  const [chromaticRows, setChromaticRows] = useState(false);
+
+  /** 進行の長さに合わせたステップ配列。編集も再生もこれを基準にする。 */
+  const melodySteps = useMemo(
+    () => fitSteps(song.melody, stepCount(arrangement.beatsPerLoop, song.melodyStepsPerBeat)),
+    [song.melody, song.melodyStepsPerBeat, arrangement.beatsPerLoop],
+  );
+
+  const melodyRows = useMemo(
+    () => pitchRowsFor(song.scale, song.tonic, 2, chromaticRows),
+    [song.scale, song.tonic, chromaticRows],
+  );
+
+  const melodyHasNotes = hasMelody(melodySteps);
+
+  /** マスをタップ。同じ音なら消し、違えば置き換える。 */
+  const toggleMelodyStep = useCallback(
+    (stepIndex: number, offset: number) => {
+      setSong((s) => {
+        const steps = fitSteps(
+          s.melody,
+          stepCount(
+            s.chords.reduce((sum, c) => sum + c.beats, 0),
+            s.melodyStepsPerBeat,
+          ),
+        );
+        const next = [...steps];
+        next[stepIndex] = next[stepIndex] === offset ? null : offset;
+        // 音を置いたらメロディを自動的に有効にする（鳴らない理由を探させないため）
+        return { ...s, melody: next, melodyEnabled: s.melodyEnabled || next[stepIndex] !== null };
+      }, `melody:${stepIndex}`);
+    },
+    [setSong],
+  );
+
+  const clearMelody = useCallback(() => {
+    setSong((s) => ({ ...s, melody: [] }), "melody-clear");
+  }, [setSong]);
+
+  /**
+   * 細かさを変える。今あるメロディは時間の位置を保ったまま作り直す
+   * （8分で作ったものを16分に変えても、鳴る位置が変わらないように）。
+   */
+  const changeMelodyResolution = useCallback(
+    (next: number) => {
+      setSong((s) => {
+        const beats = s.chords.reduce((sum, c) => sum + c.beats, 0);
+        const from = fitSteps(s.melody, stepCount(beats, s.melodyStepsPerBeat));
+        const to = Array<number | null>(stepCount(beats, next)).fill(null);
+        for (let i = 0; i < from.length; i++) {
+          if (from[i] === null) continue;
+          const at = Math.round((i / s.melodyStepsPerBeat) * next);
+          if (at < to.length) to[at] = from[i];
+        }
+        return { ...s, melody: to, melodyStepsPerBeat: next };
+      }, "melodySteps");
+    },
+    [setSong],
+  );
+
+  const previewMelodyRow = useCallback(
+    (offset: number) => {
+      void player().preview(song, [melodyMidi(song.tonic, offset, song.melodyOctave)]);
+    },
+    [song],
+  );
+
+  /** 再生中に光らせるステップ。 */
+  const playingStep =
+    playing && playPosition !== null
+      ? Math.floor(playPosition * song.melodyStepsPerBeat) % Math.max(1, melodySteps.length)
+      : null;
 
   const transportRef = useRef<HTMLElement>(null);
   const exportBusy = exportState.kind === "working";
@@ -974,6 +1061,104 @@ export default function App() {
             進行が空です。下のプリセットかコードパレットから追加してください。
           </p>
         )}
+      </section>
+
+      {/* --- メロディ --- */}
+      <section className="panel">
+        <h2>メロディ</h2>
+
+        <div className="row" style={{ marginBottom: 12 }}>
+          <label className="checkline">
+            <input
+              type="checkbox"
+              checked={song.melodyEnabled}
+              onChange={(e) => update({ melodyEnabled: e.target.checked })}
+            />
+            メロディを鳴らす
+          </label>
+
+          <div className="field">
+            <label htmlFor="melodyInstrument">音色</label>
+            <select
+              id="melodyInstrument"
+              value={song.melodyInstrument}
+              onChange={(e) => update({ melodyInstrument: e.target.value })}
+            >
+              {INSTRUMENTS.map((i) => (
+                <option key={i.id} value={i.id}>
+                  {i.label}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="field">
+            <label htmlFor="melodySteps">細かさ</label>
+            <select
+              id="melodySteps"
+              value={song.melodyStepsPerBeat}
+              onChange={(e) => changeMelodyResolution(Number(e.target.value))}
+            >
+              <option value={1}>4分音符</option>
+              <option value={2}>8分音符</option>
+              <option value={3}>3連符</option>
+              <option value={4}>16分音符</option>
+            </select>
+          </div>
+
+          <div className="field">
+            <label htmlFor="melodyOctave">オクターブ</label>
+            <select
+              id="melodyOctave"
+              value={song.melodyOctave}
+              onChange={(e) => update({ melodyOctave: Number(e.target.value) })}
+            >
+              <option value={-1}>低い</option>
+              <option value={0}>標準</option>
+              <option value={1}>高い</option>
+            </select>
+          </div>
+
+          <div className="field">
+            <label htmlFor="melodyVolume">音量 {Math.round(song.melodyVolume * 100)}%</label>
+            <input
+              id="melodyVolume"
+              type="range"
+              min={0}
+              max={100}
+              value={Math.round(song.melodyVolume * 100)}
+              onChange={(e) => update({ melodyVolume: Number(e.target.value) / 100 })}
+            />
+          </div>
+
+          <label className="checkline">
+            <input
+              type="checkbox"
+              checked={chromaticRows}
+              onChange={(e) => setChromaticRows(e.target.checked)}
+            />
+            半音も表示
+          </label>
+
+          <button
+            className="btn small"
+            onClick={clearMelody}
+            disabled={!melodyHasNotes}
+          >
+            すべて消す
+          </button>
+        </div>
+
+        <MelodyGrid
+          rows={melodyRows}
+          steps={melodySteps}
+          stepsPerBeat={song.melodyStepsPerBeat}
+          beatsPerBar={song.beatsPerBar}
+          chords={resolved}
+          playingStep={playingStep}
+          onToggle={toggleMelodyStep}
+          onPreviewRow={previewMelodyRow}
+        />
       </section>
 
       {/* --- マイ進行 --- */}

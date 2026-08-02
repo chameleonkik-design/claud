@@ -17,6 +17,7 @@ export interface MasterChain {
   chordBus: GainNode;
   bassBus: GainNode;
   drumBus: GainNode;
+  melodyBus: GainNode;
   master: GainNode;
 }
 
@@ -106,6 +107,8 @@ export function buildMasterChain(
     // ベースに残響を掛けすぎると低域が濁るので控えめに
     bassBus: bus(0.58, 0.2),
     drumBus: bus(0.55, 0.35),
+    // メロディは主役なので、伴奏より少し前に出す
+    melodyBus: bus(0.72 * song.melodyVolume, 0.8),
     master,
   };
 }
@@ -146,6 +149,18 @@ export function scheduleArrangement(
     );
   }
 
+  const melodyInst = getInstrument(song.melodyInstrument);
+  for (const n of arr.melodyNotes) {
+    melodyInst.play(
+      ctx,
+      chain.melodyBus,
+      n.midi,
+      startTime + n.start * spb,
+      n.dur * spb,
+      n.vel,
+    );
+  }
+
   for (const d of arr.drums) {
     playDrum(ctx, chain.drumBus, d.voice, startTime + d.start * spb, d.vel);
   }
@@ -155,6 +170,11 @@ export function scheduleArrangement(
 
 /** 書き出しに必要な長さ（秒）。余韻ぶんの余白を含む。 */
 export function totalRenderSeconds(song: Song, arr: Arrangement): number {
-  const tail = song.tail ? instrumentTail(song.instrument) + song.reverb * 2.0 : 0.35;
+  // メロディの音色の方が余韻が長いこともあるので、長い方に合わせる
+  const longest = Math.max(
+    instrumentTail(song.instrument),
+    song.melodyEnabled ? instrumentTail(song.melodyInstrument) : 0,
+  );
+  const tail = song.tail ? longest + song.reverb * 2.0 : 0.35;
   return arr.durationSeconds + tail;
 }
