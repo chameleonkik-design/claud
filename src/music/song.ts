@@ -6,6 +6,7 @@
  */
 
 import { chordPitchClasses, prettyChordName } from "./chords";
+import { fitSteps, melodyToNotes, stepCount, type Step } from "./melody";
 import { mod12, prefersFlats } from "./notes";
 import {
   getBassPattern,
@@ -60,6 +61,19 @@ export interface Song {
   volume: number;
   /** 末尾に1小節の余韻（無音＋残響）を足すか。 */
   tail: boolean;
+
+  // --- メロディ ---
+  /** メロディを鳴らすか。 */
+  melodyEnabled: boolean;
+  /** 各ステップの音。主音からの半音数、null は休符。 */
+  melody: Step[];
+  /** 1拍あたりのステップ数（2 = 8分, 4 = 16分）。 */
+  melodyStepsPerBeat: number;
+  melodyInstrument: string;
+  /** メロディ全体のオクターブ移動（-1, 0, +1）。 */
+  melodyOctave: number;
+  /** 0..1 のメロディ音量。 */
+  melodyVolume: number;
 }
 
 /** コード1つあたりの表示情報つき解析結果。 */
@@ -88,6 +102,8 @@ export interface Arrangement {
   chordNotes: NoteEvent[];
   /** ベースパートの音符。 */
   bassNotes: NoteEvent[];
+  /** メロディの音符。 */
+  melodyNotes: NoteEvent[];
   /** ドラム。 */
   drums: DrumEvent[];
   /** 1リピート分の拍数。 */
@@ -188,9 +204,23 @@ export function buildArrangement(song: Song): Arrangement {
 
   const chordNotes: NoteEvent[] = [];
   const bassNotes: NoteEvent[] = [];
+  const melodyNotes: NoteEvent[] = [];
+
+  // メロディは進行1周ぶんを作って、くり返しごとにずらして並べる
+  const melodyLoop = song.melodyEnabled
+    ? melodyToNotes(
+        fitSteps(song.melody, stepCount(beatsPerLoop, song.melodyStepsPerBeat)),
+        song.tonic,
+        song.melodyStepsPerBeat,
+        song.melodyOctave,
+      )
+    : [];
 
   for (let r = 0; r < repeats; r++) {
     const loopOffset = r * beatsPerLoop;
+    for (const n of melodyLoop) {
+      melodyNotes.push({ ...n, start: n.start + loopOffset });
+    }
     for (const c of chords) {
       const start = loopOffset + c.startBeat;
       chordNotes.push(
@@ -218,7 +248,7 @@ export function buildArrangement(song: Song): Arrangement {
   const drums = renderDrums(drumPattern, totalBeats, song.beatsPerBar);
 
   // イベントの終端も見て長さを決める（パターンが小節をまたぐ場合に切れないように）
-  const lastNoteEnd = [...chordNotes, ...bassNotes].reduce(
+  const lastNoteEnd = [...chordNotes, ...bassNotes, ...melodyNotes].reduce(
     (m, n) => Math.max(m, n.start + n.dur),
     0,
   );
@@ -227,6 +257,7 @@ export function buildArrangement(song: Song): Arrangement {
   return {
     chordNotes,
     bassNotes,
+    melodyNotes,
     drums,
     beatsPerLoop,
     totalBeats,

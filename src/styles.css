@@ -677,6 +677,147 @@ button:focus-visible {
   font-size: 13px;
 }
 
+/* --- メロディのピアノロール --- */
+
+.roll-wrap {
+  --cell-w: 26px;
+  --cell-h: 20px;
+  --label-w: 46px;
+}
+
+.roll-scroll {
+  overflow-x: auto;
+  overflow-y: hidden;
+  /* 横に長いので、ここだけ横スクロールさせる。ページ本体は横に動かさない */
+  -webkit-overflow-scrolling: touch;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: #14172233;
+}
+
+.roll {
+  display: flex;
+  flex-direction: column;
+  width: max-content;
+  min-width: 100%;
+}
+
+.roll-row {
+  display: flex;
+  align-items: stretch;
+}
+
+.roll-label {
+  position: sticky;
+  left: 0;
+  z-index: 2;
+  flex: none;
+  width: var(--label-w);
+  height: var(--cell-h);
+  padding: 0;
+  border: none;
+  border-right: 1px solid var(--border);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  background: var(--bg-raised);
+  color: var(--text-faint);
+  font-size: 10px;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.roll-label.tonic {
+  color: var(--accent-warm);
+  font-weight: 700;
+  background: #1c2032;
+}
+
+.roll-label.out {
+  color: var(--text-faint);
+  opacity: 0.55;
+}
+
+.roll-label:active {
+  background: var(--accent);
+  color: #0c1020;
+}
+
+.roll-cells {
+  display: flex;
+}
+
+.roll-cell {
+  flex: none;
+  width: var(--cell-w);
+  height: var(--cell-h);
+  border-right: 1px solid rgba(255, 255, 255, 0.04);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* 拍・小節の区切り */
+.roll-cell.beat {
+  border-left: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+.roll-cell.bar {
+  border-left: 2px solid var(--border-strong);
+}
+
+/* 今のコードに含まれる音（合いやすい音）を薄く示す */
+.roll-cell.chord-tone {
+  background: rgba(108, 140, 255, 0.1);
+}
+
+/* スケールから外れた行 */
+.roll-cell.out {
+  background: rgba(0, 0, 0, 0.25);
+}
+
+.roll-cell.out.chord-tone {
+  background: rgba(108, 140, 255, 0.08);
+}
+
+/* 置かれた音 */
+.roll-cell.on {
+  background: linear-gradient(180deg, #7be0c6, #2bb69c);
+  border-right-color: rgba(0, 0, 0, 0.25);
+  border-radius: 4px 0 0 4px;
+}
+
+/* 前のマスから続いている音は、繋がって見えるよう角を落とす */
+.roll-cell.on.cont {
+  border-radius: 0;
+  border-left: none;
+  background: linear-gradient(180deg, #6ddcc0, #26ab92);
+}
+
+.roll-cell.playing {
+  box-shadow: inset 0 0 0 1px rgba(255, 180, 84, 0.85);
+}
+
+.roll-legend {
+  line-height: 1.8;
+}
+
+.legend-swatch {
+  display: inline-block;
+  width: 16px;
+  height: 11px;
+  vertical-align: -1px;
+  margin: 0 2px;
+  border-radius: 3px;
+  border: 1px solid var(--border);
+}
+
+.legend-swatch.chord-tone {
+  background: rgba(108, 140, 255, 0.35);
+}
+
 /* --- マイ進行 --- */
 
 .save-row {
