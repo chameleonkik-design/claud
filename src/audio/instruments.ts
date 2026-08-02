@@ -295,11 +295,15 @@ export const INSTRUMENTS: Instrument[] = [
       const stop = time + Math.max(dur, 0.1) + 3.2;
       const out = ctx.createGain();
       out.connect(dest);
+      // 倍音の比。2.76 や 5.4 のような中途半端な比を強く鳴らすと、
+      // 和音に混ざったとき濁って聞こえる。基音とオクターブ・12度を主体にして、
+      // 金属的な高い倍音は「カン」と鳴る一瞬だけ、ごく小さく混ぜる。
       const partials: Array<[number, number, number]> = [
-        [1, 0.4, 2.6],
-        [2.76, 0.18, 1.1],
-        [5.4, 0.08, 0.6],
-        [8.9, 0.04, 0.3],
+        [1, 0.5, 3.0],
+        [2, 0.12, 1.6],
+        [3, 0.05, 0.9],
+        [6.27, 0.03, 0.35],
+        [9.1, 0.012, 0.2],
       ];
       for (const [mult, level, decay] of partials) {
         const g = ctx.createGain();

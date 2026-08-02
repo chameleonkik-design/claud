@@ -22,6 +22,8 @@ export class Player {
   private chain: MasterChain | null = null;
   private arr: Arrangement | null = null;
   private startTime = 0;
+  /** ループの先頭にあたる時刻（途中再生でも beat 0 の基準になる）。 */
+  private loopOrigin = 0;
   private loop = false;
   private loopSeconds = 0;
   private scheduledUntilLoop = 0;
@@ -56,7 +58,11 @@ export class Player {
     return this.ensureContext();
   }
 
-  async play(song: Song, loop: boolean): Promise<void> {
+  /**
+   * 再生する。fromBeat を渡すとその拍から始まる（ループ内の拍位置）。
+   * 長い曲を作っているときに、頭から聴き直さずに確認できる。
+   */
+  async play(song: Song, loop: boolean, fromBeat = 0): Promise<void> {
     this.stop();
     await this.unlock();
     const ctx = this.ensureContext();
@@ -66,6 +72,10 @@ export class Player {
     const arr = buildArrangement(source);
     const chain = buildMasterChain(ctx, ctx.destination, source);
 
+    const totalBeats = loop ? arr.beatsPerLoop : arr.beatsPerLoop * source.repeats;
+    // 端ちょうどを指すと1音も鳴らないので、頭に戻す
+    const from = fromBeat > 0 && fromBeat < totalBeats - 1e-6 ? fromBeat : 0;
+
     this.song = source;
     this.arr = arr;
     this.chain = chain;
@@ -73,9 +83,11 @@ export class Player {
     this.loopSeconds = arr.beatsPerLoop * arr.secondsPerBeat;
     // 少し先の時刻から始めることで、スケジューリングの遅れによる頭欠けを防ぐ
     this.startTime = ctx.currentTime + 0.12;
+    // 「ループの先頭が鳴っていたはずの時刻」。2周目以降と再生位置の計算に使う。
+    this.loopOrigin = this.startTime - from * arr.secondsPerBeat;
     this.playing = true;
 
-    const soundEnd = scheduleArrangement(ctx, chain, source, arr, this.startTime);
+    const soundEnd = scheduleArrangement(ctx, chain, source, arr, this.startTime, from);
     this.scheduledUntilLoop = 1;
 
     if (loop) {
@@ -93,8 +105,9 @@ export class Player {
   private pump(): void {
     if (!this.ctx || !this.chain || !this.arr || !this.song || !this.loop) return;
     const ahead = 1.5;
+    // 2周目以降はループの頭から丸ごと鳴らす
     while (
-      this.startTime + this.scheduledUntilLoop * this.loopSeconds <
+      this.loopOrigin + this.scheduledUntilLoop * this.loopSeconds <
       this.ctx.currentTime + ahead
     ) {
       scheduleArrangement(
@@ -102,7 +115,7 @@ export class Player {
         this.chain,
         this.song,
         this.arr,
-        this.startTime + this.scheduledUntilLoop * this.loopSeconds,
+        this.loopOrigin + this.scheduledUntilLoop * this.loopSeconds,
       );
       this.scheduledUntilLoop += 1;
     }
@@ -140,26 +153,31 @@ export class Player {
     this.playing = false;
   }
 
+  /** ループ内の拍位置から、鳴っているコードを引く。 */
+  private chordIndexAt(beat: number): number {
+    const chords = this.arr?.chords ?? [];
+    if (chords.length === 0) return 0;
+    const inLoop = beat % (this.arr?.beatsPerLoop || 1);
+    for (let i = 0; i < chords.length; i++) {
+      if (inLoop < chords[i].startBeat + chords[i].beats - 1e-9) return i;
+    }
+    return chords.length - 1;
+  }
+
   /** 現在の再生位置。停止中は null。 */
   position(): PlayPosition | null {
     if (!this.playing || !this.ctx || !this.arr) return null;
-    const elapsed = this.ctx.currentTime - this.startTime;
-    if (elapsed < 0) return { beat: 0, chordIndex: 0 };
+    // 途中再生でも「ループの何拍目か」で見たいので、基準は loopOrigin
+    const elapsed = this.ctx.currentTime - this.loopOrigin;
+    if (this.ctx.currentTime < this.startTime) {
+      const pending = (this.startTime - this.loopOrigin) / this.arr.secondsPerBeat;
+      return { beat: pending, chordIndex: this.chordIndexAt(pending) };
+    }
 
     const beatsTotal = elapsed / this.arr.secondsPerBeat;
     const loopBeats = this.arr.beatsPerLoop;
     const beat = this.loop ? beatsTotal % loopBeats : beatsTotal;
-
-    const chords = this.arr.chords;
-    const inLoop = beat % loopBeats;
-    let chordIndex = chords.length - 1;
-    for (let i = 0; i < chords.length; i++) {
-      if (inLoop < chords[i].startBeat + chords[i].beats - 1e-9) {
-        chordIndex = i;
-        break;
-      }
-    }
-    return { beat, chordIndex };
+    return { beat, chordIndex: this.chordIndexAt(beat) };
   }
 
   /** 単発でコードを試し聴きする（パレットのプレビュー用）。 */

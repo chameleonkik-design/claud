@@ -6,6 +6,7 @@
  */
 
 import type { Arrangement, Song } from "../music/song";
+import type { Instrument } from "./instruments";
 import {
   bassInstrument,
   getInstrument,
@@ -115,6 +116,11 @@ export function buildMasterChain(
 
 /**
  * アレンジをグラフに書き込む。startTime は ctx.currentTime 基準の開始時刻。
+ *
+ * fromBeat を渡すと、その拍から始まったものとして書き込む（途中再生）。
+ * またいでいる音は残りの長さだけ鳴らすので、和音が途切れて聞こえない。
+ * ドラムは打点なので、途中から叩き直すと不自然になる。鳴らさない。
+ *
  * 戻り値は「音が完全に消えるまでの秒数」。
  */
 export function scheduleArrangement(
@@ -123,49 +129,37 @@ export function scheduleArrangement(
   song: Song,
   arr: Arrangement,
   startTime: number,
+  fromBeat = 0,
 ): number {
   const inst = getInstrument(song.instrument);
+  const melodyInst = getInstrument(song.melodyInstrument);
   const spb = arr.secondsPerBeat;
 
-  for (const n of arr.chordNotes) {
-    inst.play(
-      ctx,
-      chain.chordBus,
-      n.midi,
-      startTime + n.start * spb,
-      n.dur * spb,
-      n.vel,
-    );
-  }
+  /** fromBeat 以降に残っている部分だけを鳴らす。 */
+  const playFrom = (
+    voice: Instrument,
+    dest: GainNode,
+    n: { midi: number; start: number; dur: number; vel: number },
+  ): void => {
+    const end = n.start + n.dur;
+    if (end <= fromBeat) return;
+    const start = Math.max(n.start, fromBeat);
+    const dur = end - start;
+    // ほとんど残っていない音を鳴らすと、ただのノイズになる
+    if (dur * spb < 0.02) return;
+    voice.play(ctx, dest, n.midi, startTime + (start - fromBeat) * spb, dur * spb, n.vel);
+  };
 
-  for (const n of arr.bassNotes) {
-    bassInstrument.play(
-      ctx,
-      chain.bassBus,
-      n.midi,
-      startTime + n.start * spb,
-      n.dur * spb,
-      n.vel,
-    );
-  }
-
-  const melodyInst = getInstrument(song.melodyInstrument);
-  for (const n of arr.melodyNotes) {
-    melodyInst.play(
-      ctx,
-      chain.melodyBus,
-      n.midi,
-      startTime + n.start * spb,
-      n.dur * spb,
-      n.vel,
-    );
-  }
+  for (const n of arr.chordNotes) playFrom(inst, chain.chordBus, n);
+  for (const n of arr.bassNotes) playFrom(bassInstrument, chain.bassBus, n);
+  for (const n of arr.melodyNotes) playFrom(melodyInst, chain.melodyBus, n);
 
   for (const d of arr.drums) {
-    playDrum(ctx, chain.drumBus, d.voice, startTime + d.start * spb, d.vel);
+    if (d.start < fromBeat) continue;
+    playDrum(ctx, chain.drumBus, d.voice, startTime + (d.start - fromBeat) * spb, d.vel);
   }
 
-  return arr.durationSeconds + instrumentTail(song.instrument);
+  return arr.durationSeconds - fromBeat * spb + instrumentTail(song.instrument);
 }
 
 /** 書き出しに必要な長さ（秒）。余韻ぶんの余白を含む。 */

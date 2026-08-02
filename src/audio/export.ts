@@ -31,19 +31,59 @@ export type Bitrate = (typeof BITRATES)[number];
 
 export type ProgressFn = (ratio: number, phase: "render" | "encode") => void;
 
+/**
+ * 先頭の無音を探す。
+ *
+ * マスターのコンプ／リミッターは先読みのぶん出力が数ミリ秒遅れるので、
+ * 何もしないと書き出したファイルの頭に無音がぶら下がる。MP3 はさらに
+ * エンコーダの遅延ぶん無音が付くため、放っておくと「頭が一瞬鳴らない」
+ * ファイルになる。ここで実際に音が立ち上がる位置を見つけて切り落とす。
+ */
+export function leadingSilenceFrames(buffer: AudioBuffer): number {
+  // 曲そのものが休符で始まっている場合まで詰めてしまわないよう上限を置く
+  const limit = Math.min(buffer.length, Math.floor(0.25 * buffer.sampleRate));
+  const threshold = 1e-4;
+  let onset = limit;
+  for (let ch = 0; ch < buffer.numberOfChannels; ch++) {
+    const data = buffer.getChannelData(ch);
+    for (let i = 0; i < onset; i++) {
+      if (Math.abs(data[i]) > threshold) {
+        onset = i;
+        break;
+      }
+    }
+  }
+  if (onset >= limit) return 0;
+  // 立ち上がりそのものを削らないよう、ほんの少し手前から残す
+  return Math.max(0, onset - Math.floor(0.001 * buffer.sampleRate));
+}
+
 /** 曲をオフラインでレンダリングして AudioBuffer を得る。 */
 export async function renderSong(song: Song, onProgress?: ProgressFn): Promise<AudioBuffer> {
   const arr = buildArrangement(song);
   const seconds = totalRenderSeconds(song, arr);
-  const frames = Math.max(1, Math.ceil(seconds * SAMPLE_RATE));
+  // 頭の無音を切り落とすぶん、あらかじめ少し長めに描画しておく
+  const frames = Math.max(1, Math.ceil((seconds + 0.25) * SAMPLE_RATE));
 
   onProgress?.(0, "render");
   const ctx = createOfflineAudioContext(2, frames, SAMPLE_RATE);
   const chain = buildMasterChain(ctx, ctx.destination, song);
   scheduleArrangement(ctx, chain, song, arr, 0);
-  const buffer = await ctx.startRendering();
+  const rendered = await ctx.startRendering();
   onProgress?.(1, "render");
-  return buffer;
+
+  const skip = leadingSilenceFrames(rendered);
+  if (skip === 0) return rendered;
+
+  const trimmed = ctx.createBuffer(
+    rendered.numberOfChannels,
+    rendered.length - skip,
+    rendered.sampleRate,
+  );
+  for (let ch = 0; ch < rendered.numberOfChannels; ch++) {
+    trimmed.getChannelData(ch).set(rendered.getChannelData(ch).subarray(skip));
+  }
+  return trimmed;
 }
 
 /** Float32 の 1 チャンネルを Int16 に変換（クリップ処理つき）。 */
