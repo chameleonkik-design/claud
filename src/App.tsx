@@ -32,6 +32,7 @@ import {
   melodyMidi,
   pitchRowsFor,
   stepCount,
+  usedOffsets,
 } from "./music/melody";
 import { pcName, prettyAccidentals } from "./music/notes";
 import { BASS_PATTERNS, CHORD_PATTERNS, DRUM_PATTERNS } from "./music/patterns";
@@ -454,9 +455,12 @@ export default function App() {
     [song.melody, song.melodyStepsPerBeat, arrangement.beatsPerLoop],
   );
 
+  // 置いてある音は、スケール外でも必ず行を出す（鳴っているのに見えない、を防ぐ）
+  const melodyUsed = useMemo(() => usedOffsets(melodySteps), [melodySteps]);
+
   const melodyRows = useMemo(
-    () => pitchRowsFor(song.scale, song.tonic, 2, chromaticRows),
-    [song.scale, song.tonic, chromaticRows],
+    () => pitchRowsFor(song.scale, song.tonic, 2, chromaticRows, melodyUsed),
+    [song.scale, song.tonic, chromaticRows, melodyUsed],
   );
 
   const melodyHasNotes = hasMelody(melodySteps);

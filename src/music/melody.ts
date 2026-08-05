@@ -43,24 +43,40 @@ export function melodyMidi(tonic: number, offset: number, octaveShift = 0): numb
  *
  * chromatic=false ならスケール音だけ。行数が減って画面に収まりやすく、
  * 外れた音を置きにくくなる。
+ *
+ * used には「実際に置かれている音」を渡す。スケール外でも必ず行を作るので、
+ * 置いた音が画面から消えることがない。半音を置いたあとに半音表示を切ったり、
+ * キーやスケールを変えたりしても、音が鳴っているのにマスが見えない、
+ * という状態にならないようにするため。
  */
-export function pitchRows(scale: Scale, tonic: number, octaves: number, chromatic: boolean): PitchRow[] {
+export function pitchRows(
+  scale: Scale,
+  tonic: number,
+  octaves: number,
+  chromatic: boolean,
+  used: Iterable<number> = [],
+): PitchRow[] {
   const useFlats = shouldUseFlats(scale, tonic);
-  const rows: PitchRow[] = [];
   const top = octaves * 12;
+  const offsets = new Set<number>();
 
   for (let offset = 0; offset <= top; offset++) {
-    const inScale = scale.degrees.includes(mod12(offset));
-    if (!chromatic && !inScale) continue;
-    rows.push({
+    if (chromatic || scale.degrees.includes(mod12(offset))) offsets.add(offset);
+  }
+  // 置かれている音は、音域の外にあっても必ず出す
+  for (const offset of used) {
+    if (Number.isFinite(offset)) offsets.add(Math.round(offset));
+  }
+
+  // 画面では高い音を上に並べる
+  return [...offsets]
+    .sort((a, b) => b - a)
+    .map((offset) => ({
       offset,
       name: pcName(mod12(tonic) + offset, useFlats),
       isTonic: mod12(offset) === 0,
-      inScale,
-    });
-  }
-  // 画面では高い音を上に並べる
-  return rows.reverse();
+      inScale: scale.degrees.includes(mod12(offset)),
+    }));
 }
 
 /** メロディの音名表記をフラット寄りにすべきか。キーの見た目に合わせる。 */
@@ -158,6 +174,14 @@ export function pitchRowsFor(
   tonic: number,
   octaves: number,
   chromatic: boolean,
+  used: Iterable<number> = [],
 ): PitchRow[] {
-  return pitchRows(getScale(scaleId), tonic, octaves, chromatic);
+  return pitchRows(getScale(scaleId), tonic, octaves, chromatic, used);
+}
+
+/** メロディで実際に使われている音の高さ（重複なし）。 */
+export function usedOffsets(steps: Step[]): number[] {
+  const set = new Set<number>();
+  for (const s of steps) if (s !== REST) set.add(s);
+  return [...set];
 }
