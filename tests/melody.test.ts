@@ -8,6 +8,7 @@ import {
   melodyToNotes,
   pitchRowsFor,
   stepCount,
+  usedOffsets,
   type Step,
 } from "../src/music/melody";
 import { buildArrangement, makeSlot, type Song } from "../src/music/song";
@@ -70,6 +71,51 @@ describe("ピアノロールの行", () => {
     // ♭系のキーは♭表記
     expect(pitchRowsFor("major", 5, 1, false).at(-1)!.name).toBe("F");
     expect(pitchRowsFor("major", 10, 1, false).at(-1)!.name).toBe("Bb");
+  });
+
+  it("置いてある半音は、半音表示を切っていても行が出る", () => {
+    // C# (offset 1) を置いた状態。半音表示は OFF。
+    const rows = pitchRowsFor("major", 0, 2, false, [1]);
+    const cSharp = rows.find((r) => r.offset === 1);
+    expect(cSharp).toBeDefined();
+    expect(cSharp!.inScale).toBe(false);
+    // スケール音15行 + 置いた1音
+    expect(rows).toHaveLength(16);
+  });
+
+  it("キーやスケールを変えて外れた音になっても行が残る", () => {
+    // メジャーの長3度(4)は、マイナーではスケール外になる
+    const rows = pitchRowsFor("minor", 0, 2, false, [4]);
+    const third = rows.find((r) => r.offset === 4);
+    expect(third).toBeDefined();
+    expect(third!.inScale).toBe(false);
+  });
+
+  it("置いた音を渡しても並びは高い順のまま", () => {
+    const rows = pitchRowsFor("major", 0, 2, false, [1, 6, 13]);
+    const offsets = rows.map((r) => r.offset);
+    expect(offsets).toEqual([...offsets].sort((a, b) => b - a));
+  });
+
+  it("同じ音を重ねて渡しても行は増えない", () => {
+    const a = pitchRowsFor("major", 0, 2, false, [1, 1, 1]);
+    const b = pitchRowsFor("major", 0, 2, false, [1]);
+    expect(a).toHaveLength(b.length);
+  });
+
+  it("スケール音を渡しても行は増えない", () => {
+    expect(pitchRowsFor("major", 0, 2, false, [0, 2, 4])).toHaveLength(15);
+  });
+
+  it("半音表示なら置いた音を渡しても25行のまま", () => {
+    expect(pitchRowsFor("major", 0, 2, true, [1, 3])).toHaveLength(25);
+  });
+
+  it("音域の外に置かれた音でも行が出る", () => {
+    // 共有リンクなどで音域外の値が入っていても、見えなくならない
+    const rows = pitchRowsFor("major", 0, 2, false, [30]);
+    expect(rows.find((r) => r.offset === 30)).toBeDefined();
+    expect(rows[0].offset).toBe(30); // いちばん高いので先頭
   });
 
   it("マイナースケールでも行が作れる", () => {
@@ -145,6 +191,22 @@ describe("ステップから音符への変換", () => {
   it("16分でも位置が合う", () => {
     const notes = melodyToNotes([0, null, null, null, 4], 0, 4, 0);
     expect(notes.map((n) => n.start)).toEqual([0, 1]);
+  });
+});
+
+describe("使われている音の抽出", () => {
+  it("休符を除いた音を重複なしで返す", () => {
+    expect(usedOffsets([0, null, 4, 0, null, 7]).sort((a, b) => a - b)).toEqual([0, 4, 7]);
+  });
+
+  it("空や全休符なら空", () => {
+    expect(usedOffsets([])).toEqual([]);
+    expect(usedOffsets([null, null])).toEqual([]);
+  });
+
+  it("0 を休符と取り違えない", () => {
+    // offset 0（主音）は falsy なので、うっかり落とすと主音が消える
+    expect(usedOffsets([0])).toEqual([0]);
   });
 });
 
